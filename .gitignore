@@ -1,0 +1,72 @@
+# =============================================================================
+# OceanWatch AI — .gitignore
+# =============================================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb~
+
+# Data — never commit raw/processed datasets or large files
+data/raw/*
+data/processed/*
+data/images/*
+data/labels/masks/
+!data/raw/SOURCES.md
+!data/processed/README.md
+!data/images/README.md
+!data/labels/README.md
+
+# Model weights (large binary files — use DVC or shared storage)
+models/detection/*.pt
+models/detection/*.pth
+models/prediction/*.json
+models/prediction/*.pkl
+models/prediction/*.ubj
+models/evaluation/plots/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Docker
+.docker/
+
+# Node.js / Frontend
+frontend/node_modules/
+frontend/build/
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+alerts/alert_log.jsonl
+
+# OS
+.DS_Store
+desktop.ini
