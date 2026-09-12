@@ -80,6 +80,7 @@ def check_credentials(username: str, password: str) -> bool:
 # ── Install copernicusmarine client if needed ────────────────────────────────
 def ensure_client() -> bool:
     try:
+        # pyrefly: ignore [missing-import]
         import copernicusmarine  # noqa: F401
         return True
     except ImportError:
@@ -90,6 +91,7 @@ def ensure_client() -> bool:
 
 # ── Download ─────────────────────────────────────────────────────────────────
 def download_netcdf(username: str, password: str) -> bool:
+    # pyrefly: ignore [missing-import]
     import copernicusmarine as cm
 
     print(f"\n[Downloading] Chlorophyll-a (CMEMS) — NetCDF")
@@ -129,6 +131,7 @@ def download_netcdf(username: str, password: str) -> bool:
 def nc_to_csv() -> None:
     """Convert NetCDF to CSV for easier pandas use."""
     try:
+        # pyrefly: ignore [missing-import]
         import xarray as xr
         print("\n[Converting] NetCDF -> CSV ...")
         ds = xr.open_dataset(OUTPUT_NC)
