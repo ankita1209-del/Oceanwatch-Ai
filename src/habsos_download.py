@@ -7,6 +7,35 @@ import pandas as pd
 OUT_PATH = 'data/raw/habsos.csv'
 META_PATH = 'data/metadata/habsos_source.json'
 
+
+def inspect_local_habsos():
+    files = []
+    for root, _, names in os.walk('data/raw/habsos'):
+        for name in names:
+            if name.lower().startswith('habsos_') and name.lower().endswith('.csv'):
+                files.append(os.path.join(root, name))
+    if not files:
+        return False
+
+    summaries = []
+    for path in sorted(files):
+        frame = pd.read_csv(path, nrows=0, low_memory=False)
+        row_count = sum(1 for _ in open(path, encoding='utf-8', errors='ignore')) - 1
+        summaries.append({'file': path, 'rows': row_count, 'columns': frame.columns.tolist()})
+
+    with open(META_PATH, 'w') as m:
+        json.dump({
+            'status': 'available_local',
+            'source': 'NOAA NCEI HABSOS accession 0120767',
+            'url': 'https://www.ncei.noaa.gov/archive/accession/0120767',
+            'license': 'NOAA public data; verify current NCEI terms before redistribution',
+            'files': summaries,
+        }, m, indent=2)
+    print('Using existing NOAA HABSOS files:', len(files))
+    for item in summaries:
+        print(f"  {item['file']}: {item['rows']} rows")
+    return True
+
 def try_urls():
     urls = [
         'https://www.ncei.noaa.gov/access/habsos/habsos.csv',
@@ -46,6 +75,9 @@ def try_erddap_search():
 def main():
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
     os.makedirs(os.path.dirname(META_PATH), exist_ok=True)
+
+    if inspect_local_habsos():
+        return
 
     ok = try_urls()
     if not ok:
