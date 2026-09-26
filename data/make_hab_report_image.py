@@ -5,7 +5,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-root = Path(r"c:\OceanWatch AI")
+root = Path(__file__).resolve().parents[1]
 output = root / "data" / "images" / "habsos_dataset_report.png"
 
 csvs = list((root / "data" / "raw" / "habsos").rglob("*.csv"))

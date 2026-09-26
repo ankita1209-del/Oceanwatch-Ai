@@ -13,6 +13,7 @@ import "./App.css";
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const MapView   = React.lazy(() => import("./pages/MapView"));
 const Events    = React.lazy(() => import("./pages/Events"));
+const History   = React.lazy(() => import("./pages/History"));
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
             <li><Link to="/">Dashboard</Link></li>
             <li><Link to="/map">Risk Map</Link></li>
             <li><Link to="/events">Events</Link></li>
+            <li><Link to="/history">History</Link></li>
           </ul>
           <div className="nav-badge">⚠️ Prototype — Decision Support Only</div>
         </nav>
@@ -37,6 +39,7 @@ function App() {
               <Route path="/"       element={<Dashboard />} />
               <Route path="/map"    element={<MapView />} />
               <Route path="/events" element={<Events />} />
+              <Route path="/history" element={<History />} />
             </Routes>
           </React.Suspense>
         </main>

@@ -1,134 +1,70 @@
-# OceanWatch AI — API Reference
+# OceanWatch AI API Reference
 
-Base URL: `http://localhost:8000` (development)
+Base URL: `http://localhost:8000`
+Swagger UI: `http://localhost:8000/docs`
 
-Interactive docs: `http://localhost:8000/docs`
+This API serves a college HAB research prototype. It is decision-support only, not an official NOAA or public-health warning service. Source observations and model-estimated predictions are separate data types; the API does not return example records when a table is empty.
 
----
+## Health
 
-## Endpoints
+### `GET /`
+Returns service status, purpose, and research disclaimer.
+
+### `GET /health`
+Returns `{"status":"healthy"}` when the API process is running. This does not guarantee database connectivity.
+
+## HAB Events
 
 ### `GET /api/events`
-Return paginated list of detected HAB events.
+Returns a JSON array of source-attributed HAB observations from PostgreSQL. An empty database returns `[]`.
 
-**Query parameters**
+Query parameters: `limit` (1–200, default 50), `offset` (default 0), `severity`, `date_from`, `date_to`, `location`, `min_lat`, `max_lat`, `min_lon`, `max_lon`.
 
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `limit` | int | 50 | Max results (≤200) |
-| `offset` | int | 0 | Pagination offset |
-| `severity` | str | null | Filter: LOW/MODERATE/HIGH/CRITICAL |
-
-**Response** `200 OK`
-```json
-[
-  {
-    "id": 1,
-    "date": "2024-07-15T12:00:00",
-    "lat": 27.5,
-    "lon": -83.0,
-    "species": "Karenia brevis",
-    "severity": "HIGH",
-    "risk_score": 72.4,
-    "source": "NOAA HAB Monitoring",
-    "description": "Red tide event detected off Florida west coast."
-  }
-]
-```
-
----
+Each event includes `id`, `date`, `lat`, `lon`, `location_name`, `species`, `severity`, measured environmental fields when available, `source`, `source_record_id`, `description`, and `created_at`. Unavailable values are null. A measured event does not automatically have a model risk score.
 
 ### `GET /api/events/{id}`
-Get a single HAB event by ID.
+Returns the complete stored source observation. Returns `404` when the ID is not present.
 
-**Response** `200 OK` — single HABEvent object | `404 Not Found`
-
----
-
-### `POST /api/predict`
-Run HAB risk prediction for a location and environmental conditions.
-
-**Request body**
-```json
-{
-  "lat": 27.5,
-  "lon": -83.0,
-  "date": "2024-07-20",
-  "sst_mean": 29.5,
-  "sst_anomaly": 1.8,
-  "chl_a_mean": 3.2,
-  "chl_anomaly": 1.1,
-  "turbidity": 4.5,
-  "wind_speed": 6.0,
-  "wind_direction": 220.0,
-  "historical_hab_7d": 2
-}
-```
-
-**Response** `200 OK`
-```json
-{
-  "hab_probability": 0.42,
-  "risk_score": 48.3,
-  "risk_level": "MODERATE",
-  "confidence": 0.78,
-  "model_version": "xgb-1.0"
-}
-```
-
----
-
-### `GET /api/risk-map`
-Return GeoJSON FeatureCollection of risk scores for the current period.
-
-**Query parameters**
-
-| Param | Type | Description |
-|-------|------|-------------|
-| `date` | str | YYYY-MM-DD (defaults to latest) |
-| `bbox` | str | `min_lon,min_lat,max_lon,max_lat` |
-
-**Response** `200 OK` — GeoJSON FeatureCollection
-
----
+## Historical Analysis
 
 ### `GET /api/history`
-Return historical risk score time-series for a location.
+Returns `{ "history": [...] }` grouped by observation date for records near a requested coordinate. Required query parameters: `lat`, `lon`; optional: `start_date`, `end_date`, `severity`, `radius_degrees` (default 0.5), `limit` (1–1000).
 
-**Query parameters**
+Each bucket contains `date`, `event_count`, `average_chlorophyll`, and `average_sst`. An average is null when source records do not contain that measured variable. HABSOS sample-water temperature is not mislabeled as sea-surface temperature.
 
-| Param | Type | Required | Description |
-|-------|------|----------|-------------|
-| `lat` | float | ✅ | Latitude |
-| `lon` | float | ✅ | Longitude |
-| `start_date` | str | | YYYY-MM-DD |
-| `end_date` | str | | YYYY-MM-DD |
-| `limit` | int | | Max 1000 |
+## Model B Prediction
 
----
+### `POST /api/predict`
+Accepts the fields used by the existing React form: `lat`, `lon`, `date`, `sst_mean`, `sst_anomaly`, `chl_a_mean`, `chl_anomaly`, `turbidity`, `wind_speed`, `wind_direction`, and `historical_hab_7d`; `current_speed` is optional unless the trained model requires it. Coordinates, values, dates, and risk bands are validated.
+
+Values must come from measured or documented datasets. A successful request requires a trained joblib XGBoost model, matching `models/prediction/model_metadata.json`, documented calibrated baselines at `data/processed/anomaly_baselines.json`, and a working PostgreSQL/PostGIS database. The model metadata feature order is checked against the serialized estimator.
+
+This repository currently contains no trained prediction artifact or calibrated baseline. Until those real artifacts exist, prediction returns `503` with an explanation; no sample probability or risk score is generated.
+
+## Risk Map
+
+### `GET /api/risk-map`
+Returns a GeoJSON `FeatureCollection` made from persisted model predictions only. If none exist, the response is `{"type":"FeatureCollection","features":[]}`. Point coordinates follow GeoJSON order `[longitude, latitude]`.
+
+Optional query parameters: `date` (`YYYY-MM-DD`), `bbox` (`min_lon,min_lat,max_lon,max_lat`), and `limit` (1–5000).
+
+## Dashboard Alerts
+
+### `GET /api/alerts`
+Returns recent stored research-dashboard alerts. Optional query parameters: `limit` (1–200, default 50) and `acknowledged`.
 
 ### `POST /api/alert`
-Create a HAB early-warning alert.
+Creates a dashboard alert for an existing stored prediction. Request body:
 
-**Request body**
 ```json
 {
-  "lat": 27.5,
-  "lon": -83.0,
-  "risk_score": 72.4,
-  "risk_level": "HIGH",
-  "message": "Optional custom message",
-  "notify_email": "team@university.edu"
+  "prediction_id": 15,
+  "message": "Optional dashboard note"
 }
 ```
 
-**Response** `200 OK`
-```json
-{
-  "alert_id": "A3F9B2",
-  "created_at": "2024-07-15T12:34:56Z",
-  "status": "created",
-  "risk_level": "HIGH",
-  "message": "HAB HIGH risk alert at (27.500, -83.000). Risk score: 72.4/100."
-}
-```
+The API derives level, score, probability, and location from that prediction; it rejects predictions below the configured `ALERT_THRESHOLD` and returns `404` for an unknown ID. Alerts are stored for the prototype dashboard only. No email, webhook, government, or public-health notifications are sent.
+
+## Errors
+
+`400` indicates an invalid filter or alert threshold, `404` a missing event/prediction, `422` invalid request/model-feature input, and `503` unavailable PostgreSQL, model artifact, metadata, or calibration baselines. Error responses avoid stack traces and sensitive database details.

@@ -11,16 +11,20 @@ const SEVERITY_BADGES = {
 export default function Events() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filterSeverity, setFilterSeverity] = useState("");
 
   useEffect(() => {
     async function fetchEventsList() {
       try {
         setLoading(true);
+        setError(null);
         const data = await getEvents({ severity: filterSeverity || null });
         setEvents(data || []);
       } catch (err) {
         console.error("Failed to load events:", err);
+        setEvents([]);
+        setError("HAB event data is unavailable. Check the API and PostgreSQL connection.");
       } finally {
         setLoading(false);
       }
@@ -61,6 +65,8 @@ export default function Events() {
         </div>
       </div>
 
+      {error && <p role="alert" style={{ color: "#ff7b72", marginBottom: "1rem" }}>{error}</p>}
+
       <div style={{ background: "#161b22", borderRadius: "12px", border: "1px solid #21262d", overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.2)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
           <thead>
@@ -93,7 +99,7 @@ export default function Events() {
                 return (
                   <tr key={ev.id} style={{ borderBottom: "1px solid #21262d", fontSize: "0.9rem", transition: "background 0.2s" }}>
                     <td style={{ padding: "1rem", color: "#8b949e" }}>#{ev.id}</td>
-                    <td style={{ padding: "1rem", color: "#e6edf3" }}>{new Date(ev.date).toLocaleDateString()}</td>
+                    <td style={{ padding: "1rem", color: "#e6edf3" }}>{ev.date ? new Date(ev.date).toLocaleDateString() : "Unavailable"}</td>
                     <td style={{ padding: "1rem", color: "#58a6ff" }}>{ev.lat.toFixed(2)}°, {ev.lon.toFixed(2)}°</td>
                     <td style={{ padding: "1rem", fontStyle: "italic", color: "#e6edf3" }}>{ev.species || "Unspecified"}</td>
                     <td style={{ padding: "1rem" }}>
@@ -106,10 +112,10 @@ export default function Events() {
                         color: badge.color,
                         border: `1px solid ${badge.border}`,
                       }}>
-                        {ev.severity}
+                        {ev.severity || "Unclassified"}
                       </span>
                     </td>
-                    <td style={{ padding: "1rem", fontWeight: 700, color: "#e6edf3" }}>{ev.risk_score}%</td>
+                    <td style={{ padding: "1rem", fontWeight: 700, color: "#e6edf3" }}>{ev.risk_score == null ? "Unavailable" : `${ev.risk_score}%`}</td>
                     <td style={{ padding: "1rem", color: "#8b949e", fontSize: "0.8rem" }}>{ev.source}</td>
                   </tr>
                 );

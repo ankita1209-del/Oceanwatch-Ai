@@ -1,6 +1,7 @@
 import os
 import requests
 import json
+from io import BytesIO
 import pandas as pd
 
 
@@ -21,7 +22,7 @@ def inspect_local_habsos():
     for path in sorted(files):
         frame = pd.read_csv(path, nrows=0, low_memory=False)
         row_count = sum(1 for _ in open(path, encoding='utf-8', errors='ignore')) - 1
-        summaries.append({'file': path, 'rows': row_count, 'columns': frame.columns.tolist()})
+        summaries.append({'file': path.replace(os.sep, '/'), 'rows': row_count, 'columns': frame.columns.tolist()})
 
     with open(META_PATH, 'w') as m:
         json.dump({
@@ -46,6 +47,15 @@ def try_urls():
         try:
             r = requests.get(u, timeout=30)
             if r.status_code == 200 and len(r.content) > 100:
+                try:
+                    columns = {
+                        str(column).strip().upper()
+                        for column in pd.read_csv(BytesIO(r.content), nrows=0).columns
+                    }
+                except (UnicodeDecodeError, pd.errors.ParserError, ValueError):
+                    continue
+                if not {"SAMPLE_DATE", "LATITUDE", "LONGITUDE"}.issubset(columns):
+                    continue
                 # Save
                 with open(OUT_PATH, 'wb') as f:
                     f.write(r.content)
@@ -67,7 +77,8 @@ def try_erddap_search():
         with open(META_PATH, 'w') as m:
             json.dump({'erddap_search_rows': len(df)}, m, indent=2)
         print('ERDDAP search saved')
-        return True
+        # Search results identify possible datasets; they are not HAB records.
+        return False
     except Exception:
         return False
 

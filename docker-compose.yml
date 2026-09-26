@@ -4,7 +4,7 @@ version: "3.9"
 # OceanWatch AI — Docker Compose (local development)
 # =============================================================================
 # Usage:
-#   docker-compose up --build          # start all services
+#   docker-compose up --build          # start the API and PostGIS
 #   docker-compose up db               # start only the database
 #   docker-compose down -v             # stop & remove volumes
 # =============================================================================
@@ -19,31 +19,16 @@ services:
     container_name: oceanwatch_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-oceanwatch}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-oceanwatch_secret}
-      POSTGRES_DB: ${POSTGRES_DB:-oceanwatch}
+      POSTGRES_USER: ${POSTGRES_USER:?Copy .env.example to .env and configure POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a local POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/database/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-oceanwatch}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ---------------------------------------------------------------------------
-  # Redis (optional — for Celery task queue / alert jobs)
-  # ---------------------------------------------------------------------------
-  redis:
-    image: redis:7-alpine
-    container_name: oceanwatch_redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?Set POSTGRES_USER in .env}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -53,27 +38,25 @@ services:
   # ---------------------------------------------------------------------------
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: oceanwatch_backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-oceanwatch}:${POSTGRES_PASSWORD:-oceanwatch_secret}@db:5432/${POSTGRES_DB:-oceanwatch}
-      REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:-change_me_in_production}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       ENVIRONMENT: development
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
+      - ./backend:/app/backend
+      - ./data/raw/habsos:/app/data/raw/habsos:ro
       - ./models:/app/models:ro
       - ./data/processed:/app/data/processed:ro
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 
   # ---------------------------------------------------------------------------
   # React Frontend (dev server)

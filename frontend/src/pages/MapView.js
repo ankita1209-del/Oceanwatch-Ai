@@ -39,7 +39,7 @@ export default function MapView() {
         <div>
           <h1 style={{ fontSize: "1.8rem", fontWeight: 700, color: "#58a6ff" }}>🗺️ Geospatial HAB Risk Map</h1>
           <p style={{ color: "#8b949e", marginTop: "0.25rem" }}>
-            Real-time Harmful Algal Bloom risk intensity across monitored oceanic grid zones.
+            Stored model-estimated HAB predictions for research decision support, not an official advisory.
           </p>
         </div>
         <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
@@ -56,6 +56,10 @@ export default function MapView() {
         <div style={{ padding: "1rem", background: "rgba(231,76,60,0.15)", border: "1px solid rgba(231,76,60,0.3)", borderRadius: "8px", color: "#ff7b72", marginBottom: "1rem" }}>
           ⚠️ {error}
         </div>
+      )}
+
+      {!loading && !error && (geoData?.features || []).length === 0 && (
+        <p style={{ color: "#8b949e", marginBottom: "0.75rem" }}>No stored model predictions are available for the map yet.</p>
       )}
 
       <div style={{ borderRadius: "12px", overflow: "hidden", border: "1px solid #21262d", boxShadow: "0 8px 24px rgba(0,0,0,0.3)" }}>

@@ -1,66 +1,75 @@
-"""
-OceanWatch AI — FastAPI Application Entry Point
-================================================
-Run locally:
-    uvicorn main:app --reload --host 0.0.0.0 --port 8000
+"""FastAPI application for the OceanWatch HAB research prototype."""
 
-API docs:  http://localhost:8000/docs
-ReDoc:     http://localhost:8000/redoc
-"""
+import logging
+from contextlib import asynccontextmanager
+from time import perf_counter
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import get_settings
-from routes import events, predict, risk_map, history, alerts
+from backend.config import get_settings
+from backend.database.connection import close_database, create_tables
+from backend.routes import alerts, events, history, predict, risk_map
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logger = logging.getLogger("oceanwatch.api")
 settings = get_settings()
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    logger.info("Starting OceanWatch HAB research API")
+    await create_tables()
+    yield
+    await close_database()
+
+
 app = FastAPI(
-    title="OceanWatch AI",
+    title="OceanWatch AI - HAB Research API",
     description=(
-        "AI-powered early-warning system for Harmful Algal Bloom (HAB) "
-        "detection and prediction. Decision-support prototype — not for "
-        "operational public-health use."
+        "Harmful Algal Bloom detection, risk assessment, and prediction for a "
+        "college research prototype. Outputs are decision-support only, not official advisories."
     ),
-    version="0.1.0",
+    version="0.2.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
-
-# ---------------------------------------------------------------------------
-# CORS — allow the React dev server (localhost:3000) to call the API
-# ---------------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
-# ---------------------------------------------------------------------------
-# Routers
-# ---------------------------------------------------------------------------
-app.include_router(events.router,   prefix="/api", tags=["Events"])
-app.include_router(predict.router,  prefix="/api", tags=["Prediction"])
-app.include_router(risk_map.router, prefix="/api", tags=["Risk Map"])
-app.include_router(history.router,  prefix="/api", tags=["History"])
-app.include_router(alerts.router,   prefix="/api", tags=["Alerts"])
+
+@app.middleware("http")
+async def log_request(request: Request, call_next):
+    started = perf_counter()
+    response = await call_next(request)
+    elapsed_ms = (perf_counter() - started) * 1000
+    logger.info("%s %s %s %.1fms", request.method, request.url.path, response.status_code, elapsed_ms)
+    return response
 
 
-@app.get("/", tags=["Health"])
+app.include_router(events.router, prefix="/api", tags=["HAB Events"])
+app.include_router(predict.router, prefix="/api", tags=["HAB Prediction"])
+app.include_router(risk_map.router, prefix="/api", tags=["HAB Risk Map"])
+app.include_router(history.router, prefix="/api", tags=["HAB History"])
+app.include_router(alerts.router, prefix="/api", tags=["HAB Alerts"])
+
+
+@app.get("/")
 async def root():
-    """Health-check / welcome endpoint."""
     return {
-        "service": "OceanWatch AI API",
-        "version": "0.1.0",
-        "status": "running",
-        "docs": "/docs",
+        "status": "online",
+        "service": "OceanWatch AI",
+        "purpose": "Harmful Algal Bloom detection, risk assessment, and prediction",
+        "disclaimer": "Research prototype; not an official public-health warning service.",
     }
 
 
-@app.get("/health", tags=["Health"])
+@app.get("/health")
 async def health():
-    """Kubernetes / Docker health-check probe."""
-    return {"status": "ok"}
+    return {"status": "healthy"}

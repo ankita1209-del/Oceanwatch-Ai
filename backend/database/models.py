@@ -1,21 +1,10 @@
-"""
-SQLAlchemy Database Models
-==========================
-ORM models mirroring the PostgreSQL schema in init.sql.
+"""SQLAlchemy models for source HAB observations and model outputs."""
 
-TODO (Member 3 — Backend):
-    - Complete async session setup
-    - Add Alembic migration scripts
-    - Wire models to route handlers
-"""
+from datetime import date, datetime, timezone
 
-from datetime import datetime, date
-from typing import Optional
-
-from sqlalchemy import (
-    Column, Integer, String, Float, Date, DateTime, SmallInteger, Text, Numeric
-)
-from sqlalchemy.orm import DeclarativeBase
+from geoalchemy2 import Geography
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
@@ -24,66 +13,89 @@ class Base(DeclarativeBase):
 
 class HABEvent(Base):
     __tablename__ = "hab_events"
+    __table_args__ = (
+        Index("ix_hab_events_coordinates", "latitude", "longitude"),
+        Index("ix_hab_events_date_severity", "event_date", "severity"),
+        UniqueConstraint("source", "source_record_id", name="uq_hab_event_source_record"),
+        CheckConstraint("latitude BETWEEN -90 AND 90", name="ck_hab_event_latitude"),
+        CheckConstraint("longitude BETWEEN -180 AND 180", name="ck_hab_event_longitude"),
+    )
 
-    id = Column(Integer, primary_key=True, index=True)
-    event_date = Column(DateTime(timezone=True), nullable=False)
-    # location stored as lat/lon floats (PostGIS column added via GeoAlchemy2 in migration)
-    lat = Column(Float, nullable=False)
-    lon = Column(Float, nullable=False)
-    species = Column(String(120), nullable=True)
-    severity = Column(String(20), nullable=False)
-    risk_score = Column(Numeric(5, 2), nullable=False)
-    hab_probability = Column(Numeric(4, 3), nullable=True)
-    source = Column(String(200), nullable=True)
-    description = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    event_date: Mapped[date] = mapped_column(Date, nullable=False)
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    location_name: Mapped[str | None] = mapped_column(String(200))
+    species: Mapped[str | None] = mapped_column(String(120))
+    severity: Mapped[str | None] = mapped_column(String(40))
+    chlorophyll_a: Mapped[float | None] = mapped_column(Float)
+    sea_surface_temperature: Mapped[float | None] = mapped_column(Float)
+    turbidity: Mapped[float | None] = mapped_column(Float)
+    wind_speed: Mapped[float | None] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    source_record_id: Mapped[str | None] = mapped_column(String(120))
+    location = mapped_column(Geography(geometry_type="POINT", srid=4326), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
 
 
-class RiskGrid(Base):
-    __tablename__ = "risk_grid"
+class Prediction(Base):
+    __tablename__ = "predictions"
+    __table_args__ = (
+        Index("ix_predictions_coordinates", "latitude", "longitude"),
+        Index("ix_predictions_date", "prediction_date"),
+        CheckConstraint("latitude BETWEEN -90 AND 90", name="ck_prediction_latitude"),
+        CheckConstraint("longitude BETWEEN -180 AND 180", name="ck_prediction_longitude"),
+        CheckConstraint("hab_probability BETWEEN 0 AND 1", name="ck_prediction_probability"),
+        CheckConstraint("risk_score BETWEEN 0 AND 100", name="ck_prediction_risk_score"),
+        CheckConstraint("risk_level IN ('LOW', 'MODERATE', 'HIGH', 'CRITICAL')", name="ck_prediction_risk_level"),
+    )
 
-    id = Column(Integer, primary_key=True, index=True)
-    grid_date = Column(Date, nullable=False)
-    lat = Column(Float, nullable=False)
-    lon = Column(Float, nullable=False)
-    risk_score = Column(Numeric(5, 2), nullable=False)
-    risk_level = Column(String(20), nullable=False)
-    hab_probability = Column(Numeric(4, 3), nullable=True)
-    chl_anomaly = Column(Numeric(6, 3), nullable=True)
-    sst_anomaly = Column(Numeric(5, 2), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    prediction_date: Mapped[date] = mapped_column(Date, nullable=False)
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    hab_probability: Mapped[float] = mapped_column(Float, nullable=False)
+    risk_score: Mapped[float] = mapped_column(Float, nullable=False)
+    risk_level: Mapped[str] = mapped_column(String(20), nullable=False)
+    chlorophyll_a: Mapped[float | None] = mapped_column(Float)
+    chlorophyll_anomaly: Mapped[float | None] = mapped_column(Float)
+    sst: Mapped[float | None] = mapped_column(Float)
+    sst_anomaly: Mapped[float | None] = mapped_column(Float)
+    turbidity: Mapped[float | None] = mapped_column(Float)
+    wind_speed: Mapped[float | None] = mapped_column(Float)
+    wind_direction: Mapped[float | None] = mapped_column(Float)
+    ocean_current: Mapped[float | None] = mapped_column(Float)
+    historical_hab_risk: Mapped[float | None] = mapped_column(Float)
+    model_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    location = mapped_column(Geography(geometry_type="POINT", srid=4326), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
 
 
 class Alert(Base):
     __tablename__ = "alerts"
+    __table_args__ = (
+        Index("ix_alerts_created_at", "created_at"),
+        CheckConstraint("latitude BETWEEN -90 AND 90", name="ck_alert_latitude"),
+        CheckConstraint("longitude BETWEEN -180 AND 180", name="ck_alert_longitude"),
+        CheckConstraint("alert_level IN ('LOW', 'MODERATE', 'HIGH', 'CRITICAL')", name="ck_alert_level"),
+        CheckConstraint("risk_score IS NULL OR risk_score BETWEEN 0 AND 100", name="ck_alert_risk_score"),
+    )
 
-    id = Column(Integer, primary_key=True, index=True)
-    alert_id = Column(String(20), unique=True, nullable=False)
-    risk_level = Column(String(20), nullable=False)
-    risk_score = Column(Numeric(5, 2), nullable=True)
-    lat = Column(Float, nullable=True)
-    lon = Column(Float, nullable=True)
-    message = Column(Text, nullable=True)
-    notify_email = Column(String(255), nullable=True)
-    status = Column(String(20), default="created")
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    sent_at = Column(DateTime(timezone=True), nullable=True)
-
-
-class EnvFeature(Base):
-    __tablename__ = "env_features"
-
-    id = Column(Integer, primary_key=True, index=True)
-    obs_date = Column(Date, nullable=False)
-    lat = Column(Float, nullable=False)
-    lon = Column(Float, nullable=False)
-    sst = Column(Numeric(5, 2), nullable=True)
-    sst_anomaly = Column(Numeric(5, 2), nullable=True)
-    chl_a = Column(Numeric(7, 4), nullable=True)
-    chl_anomaly = Column(Numeric(7, 4), nullable=True)
-    turbidity = Column(Numeric(6, 2), nullable=True)
-    wind_speed = Column(Numeric(5, 2), nullable=True)
-    wind_direction = Column(Numeric(5, 1), nullable=True)
-    current_speed = Column(Numeric(5, 2), nullable=True)
-    hab_label = Column(SmallInteger, default=0)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    prediction_id: Mapped[int | None] = mapped_column(ForeignKey("predictions.id", name="fk_alert_prediction"))
+    alert_level: Mapped[str] = mapped_column(String(20), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    latitude: Mapped[float] = mapped_column(Float, nullable=False)
+    longitude: Mapped[float] = mapped_column(Float, nullable=False)
+    risk_score: Mapped[float | None] = mapped_column(Float)
+    hab_probability: Mapped[float | None] = mapped_column(Float)
+    acknowledged: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    location = mapped_column(Geography(geometry_type="POINT", srid=4326), nullable=True)

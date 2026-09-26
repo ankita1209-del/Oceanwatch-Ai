@@ -46,8 +46,6 @@ def merge_chl_sst(chl_nc, chl_var, sst_nc, sst_var, out_csv="data/processed/merg
     merged = pd.merge(dfc[['time','lat','lon','chlorophyll']], dfs[['time','lat','lon','sst']], on=['time','lat','lon'], how='inner')
     merged = merged.dropna().drop_duplicates()
     merged['doy'] = merged['time'].dt.dayofyear
-    # label proxy: chlorophyll threshold
-    merged['hab_label'] = (merged['chlorophyll'] >= 2.5).astype(int)
     merged.to_csv(out_csv, index=False)
     return out_csv
 
@@ -56,7 +54,7 @@ def scale_features(csv_in="data/processed/merged_sample.csv", csv_out="data/proc
     df = pd.read_csv(csv_in)
     features = ['chlorophyll','sst','lat','lon','doy']
     scaler = StandardScaler()
-    df[features] = scaler.fit_transform(df[features].fillna(0))
+    df[features] = scaler.fit_transform(df[features])
     joblib.dump(scaler, 'data/metadata/scaler.joblib')
     df.to_csv(csv_out, index=False)
     return csv_out

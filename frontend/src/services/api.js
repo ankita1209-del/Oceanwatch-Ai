@@ -83,4 +83,10 @@ export async function createAlert(payload) {
   return data;
 }
 
+/** Fetch recent research-dashboard HAB alerts. */
+export async function getAlerts({ limit = 20 } = {}) {
+  const { data } = await api.get("/api/alerts", { params: { limit } });
+  return data;
+}
+
 export default api;

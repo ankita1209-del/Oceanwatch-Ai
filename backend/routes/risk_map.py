@@ -1,61 +1,62 @@
-"""
-Route: GET /api/risk-map
+"""GeoJSON risk features backed by stored HAB model predictions."""
 
-Returns a GeoJSON FeatureCollection of risk scores for
-all monitored grid cells for the current/latest period.
-Used by the Leaflet map on the frontend.
-"""
+from datetime import date
 
-from fastapi import APIRouter, Query
-from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.database.connection import get_db
+from backend.database.models import Prediction
 
 router = APIRouter()
-
-# Stub GeoJSON — each feature is a 0.25° grid cell
-STUB_GEOJSON = {
-    "type": "FeatureCollection",
-    "features": [
-        {
-            "type": "Feature",
-            "geometry": {"type": "Point", "coordinates": [-83.0, 27.5]},
-            "properties": {
-                "risk_score": 72.4,
-                "risk_level": "HIGH",
-                "hab_probability": 0.68,
-                "date": "2024-07-15",
-                "location_name": "Florida West Coast",
-            },
-        },
-        {
-            "type": "Feature",
-            "geometry": {"type": "Point", "coordinates": [-83.5, 28.0]},
-            "properties": {
-                "risk_score": 41.0,
-                "risk_level": "MODERATE",
-                "hab_probability": 0.38,
-                "date": "2024-07-15",
-                "location_name": "Tampa Bay",
-            },
-        },
-    ],
-}
 
 
 @router.get("/risk-map")
 async def get_risk_map(
-    date: Optional[str] = Query(
-        default=None, description="Target date YYYY-MM-DD (defaults to latest)"
-    ),
-    bbox: Optional[str] = Query(
-        default=None,
-        description="Bounding box: min_lon,min_lat,max_lon,max_lat",
-    ),
+    target_date: date | None = Query(default=None, alias="date"),
+    bbox: str | None = Query(default=None, description="min_lon,min_lat,max_lon,max_lat"),
+    limit: int = Query(default=1000, ge=1, le=5000),
+    session: AsyncSession = Depends(get_db),
 ):
-    """
-    Return a GeoJSON FeatureCollection of HAB risk scores for map rendering.
-
-    TODO (Member 3 — Backend / Member 4 — Frontend):
-    - Query risk scores from PostGIS for the given date & bbox
-    - Return real spatial features from the database
-    """
-    return STUB_GEOJSON
+    statement = select(Prediction)
+    if target_date:
+        statement = statement.where(Prediction.prediction_date == target_date)
+    if bbox:
+        try:
+            min_lon, min_lat, max_lon, max_lat = map(float, bbox.split(","))
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="bbox must be min_lon,min_lat,max_lon,max_lat")
+        if not (-180 <= min_lon <= 180 and -180 <= max_lon <= 180):
+            raise HTTPException(status_code=400, detail="bbox longitude values must be in [-180, 180]")
+        if not (-90 <= min_lat <= 90 and -90 <= max_lat <= 90):
+            raise HTTPException(status_code=400, detail="bbox latitude values must be in [-90, 90]")
+        if min_lon > max_lon or min_lat > max_lat:
+            raise HTTPException(status_code=400, detail="bbox minimums must not exceed maximums")
+        statement = statement.where(
+            Prediction.longitude.between(min_lon, max_lon),
+            Prediction.latitude.between(min_lat, max_lat),
+        )
+    rows = await session.scalars(
+        statement.order_by(Prediction.prediction_date.desc(), Prediction.id.desc()).limit(limit)
+    )
+    features = []
+    for prediction in rows:
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [prediction.longitude, prediction.latitude],
+                },
+                "properties": {
+                    "prediction_id": prediction.id,
+                    "risk_score": prediction.risk_score,
+                    "risk_level": prediction.risk_level,
+                    "hab_probability": prediction.hab_probability,
+                    "date": prediction.prediction_date.isoformat(),
+                    "location_name": None,
+                },
+            }
+        )
+    return {"type": "FeatureCollection", "features": features}
