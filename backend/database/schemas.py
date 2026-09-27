@@ -37,6 +37,7 @@ class HABEventResponse(BaseModel):
     severity: str | None
     chlorophyll_a: float | None
     sea_surface_temperature: float | None
+    sample_water_temperature: float | None
     turbidity: float | None
     wind_speed: float | None
     source: str

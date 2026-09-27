@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getAlerts, getEvents, getRiskMap, predictHAB } from "../services/api";
+import { apiFailureMessage, getAlerts, getEvents, getHealth, getRiskMap, predictHAB } from "../services/api";
 
 export default function Dashboard() {
   const [events, setEvents] = useState([]);
@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [predictLoading, setPredictLoading] = useState(false);
   const [predictionResult, setPredictionResult] = useState(null);
   const [predictionError, setPredictionError] = useState(null);
+  const [predictionModelAvailable, setPredictionModelAvailable] = useState(null);
 
   // Inputs must come from measured or documented environmental data.
   const [predForm, setPredForm] = useState({
@@ -31,14 +32,28 @@ export default function Dashboard() {
     async function fetchData() {
       try {
         setLoading(true);
+        const healthResult = await getHealth().then((value) => ({ status: "fulfilled", value })).catch((reason) => ({ status: "rejected", reason }));
+        if (healthResult.status === "rejected") {
+          setDataError(apiFailureMessage(healthResult.reason));
+          return;
+        }
+        setPredictionModelAvailable(healthResult.value.prediction_model === "available");
+        if (healthResult.value.database !== "connected") {
+          setDataError("Backend is running, but the database is unavailable.");
+          return;
+        }
+        if (healthResult.value.postgis !== "available") {
+          setDataError("PostgreSQL is connected, but PostGIS is unavailable.");
+          return;
+        }
         const results = await Promise.allSettled([getEvents(), getRiskMap(), getAlerts()]);
         const errors = [];
         if (results[0].status === "fulfilled") setEvents(results[0].value || []);
-        else errors.push("HAB event data is unavailable.");
+        else errors.push(apiFailureMessage(results[0].reason));
         if (results[1].status === "fulfilled") setGeoData(results[1].value);
-        else errors.push("HAB risk map data is unavailable.");
+        else errors.push(apiFailureMessage(results[1].reason));
         if (results[2].status === "fulfilled") setAlerts(results[2].value || []);
-        else errors.push("HAB dashboard alerts are unavailable.");
+        else errors.push(apiFailureMessage(results[2].reason));
         setDataError(errors.length ? errors.join(" ") : null);
       } catch (err) {
         console.error("Dashboard data load error:", err);
@@ -97,10 +112,10 @@ export default function Dashboard() {
       {/* Metrics Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.25rem", marginBottom: "2.5rem" }}>
         {[
-          { label: "Active HAB Events", value: loading ? "…" : events.length, color: "#e74c3c" },
-          { label: "Critical Risk Zones", value: loading ? "…" : criticalCount, color: "#e67e22" },
-          { label: "High Risk Zones", value: loading ? "…" : highCount, color: "#f39c12" },
-          { label: "Stored Prediction Locations", value: loading ? "…" : features.length, color: "#3498db" },
+          { label: "HAB Observations", value: loading ? "…" : dataError ? "—" : events.length, color: "#e74c3c" },
+          { label: "Critical Risk Zones", value: loading ? "…" : dataError ? "—" : criticalCount, color: "#e67e22" },
+          { label: "High Risk Zones", value: loading ? "…" : dataError ? "—" : highCount, color: "#f39c12" },
+          { label: "Stored Prediction Locations", value: loading ? "…" : dataError ? "—" : features.length, color: "#3498db" },
         ].map((card) => (
           <div
             key={card.label}
@@ -126,7 +141,7 @@ export default function Dashboard() {
             🚨 Recent Detected HAB Events
           </h2>
           {events.length === 0 ? (
-            <p style={{ color: "#8b949e" }}>No active events detected.</p>
+            <p style={{ color: "#8b949e" }}>{dataError ? "HAB observations unavailable until the database connection is restored." : "No HAB observations are currently available."}</p>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               {events.map((ev) => (
@@ -145,6 +160,7 @@ export default function Dashboard() {
                     </span>
                   </div>
                   <p style={{ fontSize: "0.85rem", color: "#c9d1d9", marginBottom: "0.5rem" }}>{ev.description}</p>
+                  {ev.chlorophyll_a == null && ev.sea_surface_temperature == null && ev.sample_water_temperature == null && ev.turbidity == null && ev.wind_speed == null && <p style={{ fontSize: "0.75rem", color: "#8b949e" }}>Environmental measurement unavailable for this observation.</p>}
                   <div style={{ fontSize: "0.75rem", color: "#8b949e", display: "flex", justifyContent: "space-between" }}>
                     <span>📍 Lat: {ev.lat}, Lon: {ev.lon}</span>
                     <span>Source: {ev.source}</span>
@@ -163,6 +179,7 @@ export default function Dashboard() {
           <p style={{ color: "#8b949e", fontSize: "0.85rem", marginBottom: "1rem" }}>
             Enter measured values from a documented data source. This research prototype is not an official advisory.
           </p>
+          {predictionModelAvailable === false && <p style={{ color: "#f0883e", fontSize: "0.85rem" }}>No trained HAB prediction model is currently available.</p>}
 
           <form onSubmit={handlePredict} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
             <div>
@@ -248,7 +265,7 @@ export default function Dashboard() {
       <section style={{ marginTop: "2rem", paddingTop: "1.5rem", borderTop: "1px solid #30363d" }}>
         <h2 style={{ fontSize: "1.2rem", fontWeight: 600, color: "#e6edf3", marginBottom: "1rem" }}>Recent HAB research alerts</h2>
         {alerts.length === 0 ? (
-          <p style={{ color: "#8b949e" }}>No stored dashboard alerts.</p>
+          <p style={{ color: "#8b949e" }}>{dataError ? "HAB alerts unavailable until the database connection is restored." : "No HAB alerts are currently available."}</p>
         ) : (
           <div style={{ display: "grid", gap: "0.75rem" }}>
             {alerts.map((alert) => (

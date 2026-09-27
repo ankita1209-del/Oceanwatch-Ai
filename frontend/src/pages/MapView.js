@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
-import { getRiskMap } from "../services/api";
+import { apiFailureMessage, getEvents, getHealth, getRiskMap } from "../services/api";
 
 const RISK_COLORS = {
   CRITICAL: "#e74c3c",
@@ -11,6 +11,8 @@ const RISK_COLORS = {
 
 export default function MapView() {
   const [geoData, setGeoData] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [predictionModelAvailable, setPredictionModelAvailable] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -18,11 +20,24 @@ export default function MapView() {
     async function loadData() {
       try {
         setLoading(true);
-        const data = await getRiskMap();
-        setGeoData(data);
+        const health = await getHealth();
+        setPredictionModelAvailable(health.prediction_model === "available");
+        if (health.database !== "connected") {
+          setError("Backend is running, but the database is unavailable.");
+          return;
+        }
+        if (health.postgis !== "available") {
+          setError("PostgreSQL is connected, but PostGIS is unavailable.");
+          return;
+        }
+        const results = await Promise.allSettled([getRiskMap(), getEvents({ limit: 200 })]);
+        if (results[0].status === "fulfilled") setGeoData(results[0].value);
+        else setError(apiFailureMessage(results[0].reason));
+        if (results[1].status === "fulfilled") setEvents(results[1].value || []);
+        else setError((current) => current || apiFailureMessage(results[1].reason));
       } catch (err) {
         console.error("Failed to load risk map:", err);
-        setError("Could not load risk map data. Make sure the backend is running.");
+        setError(apiFailureMessage(err));
       } finally {
         setLoading(false);
       }
@@ -42,7 +57,11 @@ export default function MapView() {
             Stored model-estimated HAB predictions for research decision support, not an official advisory.
           </p>
         </div>
-        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.8rem", color: "#e6edf3" }}>
+            <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "#58a6ff", display: "inline-block" }}></span>
+            Historical HAB observation
+          </div>
           {Object.entries(RISK_COLORS).map(([level, color]) => (
             <div key={level} style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.8rem", color: "#e6edf3" }}>
               <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: color, display: "inline-block" }}></span>
@@ -59,7 +78,7 @@ export default function MapView() {
       )}
 
       {!loading && !error && (geoData?.features || []).length === 0 && (
-        <p style={{ color: "#8b949e", marginBottom: "0.75rem" }}>No stored model predictions are available for the map yet.</p>
+        <p style={{ color: "#8b949e", marginBottom: "0.75rem" }}>{predictionModelAvailable === false ? "Historical observations are shown separately. No trained HAB prediction model is currently available." : "No stored model predictions are currently available; historical observations are shown separately."}</p>
       )}
 
       <div style={{ borderRadius: "12px", overflow: "hidden", border: "1px solid #21262d", boxShadow: "0 8px 24px rgba(0,0,0,0.3)" }}>
@@ -78,6 +97,28 @@ export default function MapView() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
+            {events.map((event) => (
+              <CircleMarker
+                key={`observation-${event.id}`}
+                center={[event.lat, event.lon]}
+                radius={7}
+                pathOptions={{ color: "#58a6ff", fillColor: "#58a6ff", fillOpacity: 0.8, weight: 2 }}
+              >
+                <Popup>
+                  <div style={{ color: "#0d1117", minWidth: "180px" }}>
+                    <strong>Historical HAB observation</strong>
+                    <div>Species: {event.species || "Unavailable"}</div>
+                    <div>Date: {event.date || "Unavailable"}</div>
+                    <div>Severity: {event.severity || "Unclassified by source"}</div>
+                    <div>Source: {event.source}</div>
+                    {event.sample_water_temperature != null && <div>Sample water temperature: {event.sample_water_temperature}</div>}
+                    <div>Risk prediction: Not available</div>
+                    {event.chlorophyll_a == null && event.sea_surface_temperature == null && event.sample_water_temperature == null && event.turbidity == null && event.wind_speed == null && <div>Environmental measurement unavailable for this observation.</div>}
+                  </div>
+                </Popup>
+              </CircleMarker>
+            ))}
+
             {geoData?.features?.map((feature, idx) => {
               const [lon, lat] = feature.geometry.coordinates;
               const props = feature.properties;
@@ -87,7 +128,7 @@ export default function MapView() {
                 <CircleMarker
                   key={idx}
                   center={[lat, lon]}
-                  radius={18}
+                  radius={12}
                   pathOptions={{
                     color: color,
                     fillColor: color,

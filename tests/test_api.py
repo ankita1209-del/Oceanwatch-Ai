@@ -46,7 +46,11 @@ async def test_root_and_health():
         health = await client.get("/health")
     assert root.status_code == 200
     assert root.json()["service"] == "OceanWatch AI"
-    assert health.json() == {"status": "healthy"}
+    assert health.status_code == 200
+    assert health.json()["status"] == "healthy"
+    assert health.json()["database"] in {"connected", "not_configured", "unavailable"}
+    assert health.json()["postgis"] in {"available", "not_checked", "unavailable"}
+    assert health.json()["prediction_model"] in {"available", "not_available"}
 
 
 @pytest.mark.asyncio

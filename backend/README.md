@@ -48,6 +48,14 @@ docker compose up --build db backend
 
 Existing databases created by the earlier prototype schema may need a one-time migration before use; `create_all` does not rewrite old table layouts. Back up the database before changing an existing schema.
 
+Check the actual connection, PostGIS extension, required tables, row counts, date range, and coordinate validity with:
+
+```powershell
+python -m backend.check_database
+```
+
+The script never prints `DATABASE_URL` or its password. A missing `.env`/`DATABASE_URL` is reported as not configured rather than filled with sample credentials.
+
 ## Environment
 
 `DATABASE_URL` is required for persistent endpoints. `CORS_ORIGINS` is a comma-separated list and defaults to the React development origins. `PREDICTION_MODEL_PATH`, `MODEL_METADATA_PATH`, `ANOMALY_BASELINE_PATH`, and `ALERT_THRESHOLD` can be configured in `.env`. Example model paths and the score threshold are in the root `.env.example`.
@@ -61,6 +69,13 @@ uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 API base: `http://localhost:8000`; Swagger: `http://localhost:8000/docs`; health: `http://localhost:8000/health`.
+`/health` reports PostgreSQL, PostGIS, and prediction-artifact availability separately. The API can stay up for diagnostics when the database is unavailable; data routes return HTTP 503.
+
+After starting the API, check the required endpoints with concise response summaries:
+
+```powershell
+python -m backend.diagnose_api
+```
 
 ## Endpoints
 
@@ -110,6 +125,12 @@ Place original downloaded NOAA NCEI HABSOS CSVs under `data/raw/habsos/` and rec
 
 ```powershell
 python -m backend.ingest_habsos --input data/raw/habsos
+```
+
+Validate the local CSVs, date/coordinate mappings, duplicate IDs, and measurement coverage without writing or needing PostgreSQL:
+
+```powershell
+python -m backend.ingest_habsos --input data/raw/habsos --dry-run
 ```
 
 The importer validates dates and coordinates, preserves NOAA source identifiers/categories, leaves unavailable environmental measurements null, and avoids duplicate imports. It does not create observations from environmental thresholds.

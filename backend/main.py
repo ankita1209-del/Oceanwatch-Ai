@@ -2,14 +2,16 @@
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from time import perf_counter
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import get_settings
-from backend.database.connection import close_database, create_tables
+from backend.database.connection import close_database, create_tables, probe_database
 from backend.routes import alerts, events, history, predict, risk_map
+from sqlalchemy.exc import SQLAlchemyError
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("oceanwatch.api")
@@ -19,7 +21,10 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     logger.info("Starting OceanWatch HAB research API")
-    await create_tables()
+    try:
+        await create_tables()
+    except SQLAlchemyError as exc:
+        logger.error("Database initialization failed (%s); API will stay available for diagnostics", type(exc).__name__)
     yield
     await close_database()
 
@@ -72,4 +77,12 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    database = await probe_database()
+    model_available = Path(settings.PREDICTION_MODEL_PATH).is_file()
+    return {
+        "status": "healthy",
+        "database": database["status"],
+        "postgis": database["postgis"],
+        "postgis_version": database.get("postgis_version"),
+        "prediction_model": "available" if model_available else "not_available",
+    }

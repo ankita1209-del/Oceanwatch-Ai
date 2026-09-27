@@ -30,6 +30,7 @@ class HABEvent(Base):
     severity: Mapped[str | None] = mapped_column(String(40))
     chlorophyll_a: Mapped[float | None] = mapped_column(Float)
     sea_surface_temperature: Mapped[float | None] = mapped_column(Float)
+    sample_water_temperature: Mapped[float | None] = mapped_column(Float)
     turbidity: Mapped[float | None] = mapped_column(Float)
     wind_speed: Mapped[float | None] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String(200), nullable=False)

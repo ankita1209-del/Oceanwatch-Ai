@@ -8,7 +8,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { getHistory } from "../services/api";
+import { apiFailureMessage, getHistory } from "../services/api";
 
 const chartStyle = {
   background: "#161b22",
@@ -62,8 +62,7 @@ export default function History() {
       setHistory(result.history || []);
     } catch (requestError) {
       setHistory([]);
-      const detail = requestError.response?.data?.detail;
-      setError(typeof detail === "string" ? detail : detail?.detail || detail?.error || "Historical HAB data is unavailable. Check the API and PostgreSQL connection.");
+      setError(apiFailureMessage(requestError));
     } finally {
       setLoading(false);
     }

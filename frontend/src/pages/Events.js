@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getEvents } from "../services/api";
+import { apiFailureMessage, getEvents } from "../services/api";
 
 const SEVERITY_BADGES = {
   CRITICAL: { bg: "rgba(231,76,60,0.2)", color: "#e74c3c", border: "#e74c3c" },
@@ -24,7 +24,7 @@ export default function Events() {
       } catch (err) {
         console.error("Failed to load events:", err);
         setEvents([]);
-        setError("HAB event data is unavailable. Check the API and PostgreSQL connection.");
+        setError(apiFailureMessage(err));
       } finally {
         setLoading(false);
       }
@@ -90,7 +90,7 @@ export default function Events() {
             ) : events.length === 0 ? (
               <tr>
                 <td colSpan={7} style={{ padding: "3rem", textAlign: "center", color: "#8b949e" }}>
-                  No events found matching filter criteria.
+              {error ? "HAB observations are unavailable." : "No HAB observations are currently available."}
                 </td>
               </tr>
             ) : (
@@ -116,7 +116,10 @@ export default function Events() {
                       </span>
                     </td>
                     <td style={{ padding: "1rem", fontWeight: 700, color: "#e6edf3" }}>{ev.risk_score == null ? "Unavailable" : `${ev.risk_score}%`}</td>
-                    <td style={{ padding: "1rem", color: "#8b949e", fontSize: "0.8rem" }}>{ev.source}</td>
+                    <td style={{ padding: "1rem", color: "#8b949e", fontSize: "0.8rem" }}>
+                      {ev.source}
+                      {ev.chlorophyll_a == null && ev.sea_surface_temperature == null && ev.sample_water_temperature == null && ev.turbidity == null && ev.wind_speed == null && <div>Environmental measurement unavailable for this observation.</div>}
+                    </td>
                   </tr>
                 );
               })

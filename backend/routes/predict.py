@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+from geoalchemy2.shape import WKTElement
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -117,6 +118,9 @@ async def predict_hab(
         ocean_current=data.current_speed,
         historical_hab_risk=risk.components["hist_score"],
         model_name=model_name,
+        location=WKTElement(
+            f"POINT({data.longitude} {data.latitude})", srid=4326
+        ),
         created_at=datetime.now(timezone.utc),
     )
     session.add(prediction)
