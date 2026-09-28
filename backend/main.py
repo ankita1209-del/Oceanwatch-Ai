@@ -23,8 +23,8 @@ async def lifespan(_: FastAPI):
     logger.info("Starting OceanWatch HAB research API")
     try:
         await create_tables()
-    except SQLAlchemyError as exc:
-        logger.error("Database initialization failed (%s); API will stay available for diagnostics", type(exc).__name__)
+    except Exception as exc:
+        logger.error("Database initialization failed (%s: %s); API will stay available for diagnostics", type(exc).__name__, exc)
     yield
     await close_database()
 

@@ -219,6 +219,7 @@ pip install -r requirements.txt
 cd frontend
 npm install
 npm run dev
+npm.cmd run dev
 ```
 
 ### 4. Docker (full stack)
