@@ -21,6 +21,11 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://oceanwatch:oceanwatch_secret@localhost:5432/oceanwatch"
     )
 
+    @property
+    def SYNC_DATABASE_URL(self) -> str:
+        """Synchronous connection string for Alembic and migrations."""
+        return self.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+
     # Redis (optional — for Celery tasks)
     REDIS_URL: str = "redis://localhost:6379/0"
 
@@ -44,8 +49,9 @@ class Settings(BaseSettings):
     W_ENV_ANOMALY: float = 0.10
 
     class Config:
-        env_file = ".env"
+        env_file = (".env", "../.env")
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
 @lru_cache()

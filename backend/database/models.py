@@ -2,24 +2,75 @@
 SQLAlchemy Database Models
 ==========================
 ORM models mirroring the PostgreSQL schema in init.sql.
-
-TODO (Member 3 — Backend):
-    - Complete async session setup
-    - Add Alembic migration scripts
-    - Wire models to route handlers
 """
 
 from datetime import datetime, date
 from typing import Optional
 
 from sqlalchemy import (
-    Column, Integer, String, Float, Date, DateTime, SmallInteger, Text, Numeric
+    Column, Integer, String, Float, Date, DateTime, SmallInteger, Text, Numeric, ForeignKey, Index
 )
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, relationship
+from geoalchemy2 import Geometry
 
 
 class Base(DeclarativeBase):
     pass
+
+
+class Location(Base):
+    """
+    Monitored marine / coastal stations.
+    Stores coordinate points with PostGIS Point geometry (SRID 4326).
+    """
+    __tablename__ = "locations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    lat = Column(Float, nullable=False)
+    lon = Column(Float, nullable=False)
+    geometry = Column(
+        Geometry(geometry_type="POINT", srid=4326, spatial_index=False),
+        nullable=True,
+    )
+
+    risk_scores = relationship(
+        "RiskScore",
+        back_populates="location",
+        cascade="all, delete-orphan",
+        order_by="desc(RiskScore.detected_at)",
+    )
+
+
+class RiskScore(Base):
+    """
+    Harmful Algal Bloom (HAB) risk score assessments for monitored locations.
+    """
+    __tablename__ = "risk_scores"
+
+    id = Column(Integer, primary_key=True, index=True)
+    location_id = Column(
+        Integer,
+        ForeignKey("locations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    risk_score = Column(Float, nullable=False)
+    risk_level = Column(String(20), nullable=False)  # LOW, MODERATE, HIGH, CRITICAL
+    chlorophyll_a = Column(Float, nullable=True)
+    sst_anomaly = Column(Float, nullable=True)
+    detected_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+        default=datetime.utcnow,
+    )
+
+    location = relationship("Location", back_populates="risk_scores")
+
+    __table_args__ = (
+        Index("idx_risk_scores_loc_detected", "location_id", "detected_at"),
+    )
 
 
 class HABEvent(Base):
@@ -27,7 +78,6 @@ class HABEvent(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     event_date = Column(DateTime(timezone=True), nullable=False)
-    # location stored as lat/lon floats (PostGIS column added via GeoAlchemy2 in migration)
     lat = Column(Float, nullable=False)
     lon = Column(Float, nullable=False)
     species = Column(String(120), nullable=True)

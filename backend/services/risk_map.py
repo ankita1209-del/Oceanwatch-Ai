@@ -1,30 +1,20 @@
-"""Database access and GeoJSON serialization for the current risk map."""
+"""
+Database access and risk map aggregation service for OceanWatch AI.
+"""
 
 from datetime import date, datetime, time, timezone
-
+from typing import Any, Dict, List, Optional
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from config import get_settings
 
-_engine = create_async_engine(get_settings().DATABASE_URL, pool_pre_ping=True)
+settings = get_settings()
+_engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)
 
 
-def _parse_bbox(bbox):
-    if bbox is None:
-        return (None, None, None, None)
-
-    try:
-        values = tuple(float(value) for value in bbox.split(","))
-    except ValueError as exc:
-        raise ValueError("bbox must contain four comma-separated numbers") from exc
-
-    if len(values) != 4:
-        raise ValueError("bbox must contain four comma-separated numbers")
-    return values
-
-
-def _isoformat(value):
+def _isoformat(value: Any) -> str:
+    """Serialize a date or datetime to an ISO8601 string with UTC timezone."""
     if isinstance(value, datetime):
         if value.tzinfo is None:
             value = value.replace(tzinfo=timezone.utc)
@@ -34,96 +24,74 @@ def _isoformat(value):
     return datetime.now(timezone.utc).isoformat()
 
 
-async def get_current_risk_map(target_date=None, bbox=None):
-    """Return latest stored risk scores and matching environmental values."""
-    min_lon, min_lat, max_lon, max_lat = _parse_bbox(bbox)
-    statement = text(
-        """
-        WITH latest_risk AS (
-            SELECT DISTINCT ON (
-                ST_X(rg.cell_center::geometry), ST_Y(rg.cell_center::geometry)
-            )
-                rg.id,
-                rg.grid_date,
-                rg.created_at,
-                rg.risk_score,
-                rg.risk_level,
-                rg.chl_anomaly,
-                rg.sst_anomaly,
-                ST_X(rg.cell_center::geometry) AS lon,
-                ST_Y(rg.cell_center::geometry) AS lat,
-                rg.cell_center
-            FROM risk_grid AS rg
-            WHERE (CAST(:target_date AS date) IS NULL OR rg.grid_date <= CAST(:target_date AS date))
-              AND (CAST(:min_lon AS double precision) IS NULL OR ST_X(rg.cell_center::geometry) >= :min_lon)
-              AND (CAST(:min_lat AS double precision) IS NULL OR ST_Y(rg.cell_center::geometry) >= :min_lat)
-              AND (CAST(:max_lon AS double precision) IS NULL OR ST_X(rg.cell_center::geometry) <= :max_lon)
-              AND (CAST(:max_lat AS double precision) IS NULL OR ST_Y(rg.cell_center::geometry) <= :max_lat)
-            ORDER BY
-                ST_X(rg.cell_center::geometry),
-                ST_Y(rg.cell_center::geometry),
-                rg.grid_date DESC,
-                rg.created_at DESC,
-                rg.id DESC
+async def get_current_risk_map() -> List[Dict[str, Any]]:
+    """
+    Query all monitored locations joined with ONLY their latest risk_scores record.
+    Latest is determined by detected_at.
+
+    Returns a Python list of dictionaries containing:
+        - location_name
+        - lat
+        - lon
+        - risk_score
+        - risk_level
+        - chlorophyll_a
+        - sst_anomaly
+        - detected_at
+    """
+    # TODO: replace with live model inference
+    # Documented risk formula:
+    # Score = 0.40 * AI_pred + 0.20 * Chl_anom + 0.15 * SST_anom + 0.15 * Hist_risk + 0.10 * Env_anom
+    # Direct database values are used until the live AI inference pipeline is integrated.
+
+    query = text("""
+        WITH ranked_risks AS (
+            SELECT
+                l.id AS location_id,
+                l.name AS location_name,
+                l.lat,
+                l.lon,
+                r.risk_score,
+                r.risk_level,
+                r.chlorophyll_a,
+                r.sst_anomaly,
+                r.detected_at,
+                ROW_NUMBER() OVER (
+                    PARTITION BY l.id
+                    ORDER BY r.detected_at DESC, r.id DESC
+                ) AS rn
+            FROM locations l
+            JOIN risk_scores r ON r.location_id = l.id
         )
         SELECT
-            latest_risk.lon,
-            latest_risk.lat,
-            latest_risk.risk_score,
-            latest_risk.risk_level,
-            COALESCE(env.chl_a, 0) AS chlorophyll_a,
-            COALESCE(latest_risk.sst_anomaly, env.sst_anomaly, 0) AS sst_anomaly,
-            COALESCE(latest_risk.created_at, latest_risk.grid_date::timestamptz) AS detected_at
-        FROM latest_risk
-        LEFT JOIN LATERAL (
-            SELECT ef.chl_a, ef.sst_anomaly
-            FROM env_features AS ef
-            WHERE ST_DWithin(latest_risk.cell_center, ef.location, 10000)
-            ORDER BY ef.obs_date DESC,
-                     ST_Distance(latest_risk.cell_center, ef.location),
-                     ef.id DESC
-            LIMIT 1
-        ) AS env ON TRUE
-        ORDER BY latest_risk.lat, latest_risk.lon
-        """
-    )
+            location_name,
+            lat,
+            lon,
+            risk_score,
+            risk_level,
+            chlorophyll_a,
+            sst_anomaly,
+            detected_at
+        FROM ranked_risks
+        WHERE rn = 1
+        ORDER BY location_name ASC
+    """)
 
-    async with _engine.connect() as connection:
-        result = await connection.execute(
-            statement,
-            {
-                "target_date": target_date,
-                "min_lon": min_lon,
-                "min_lat": min_lat,
-                "max_lon": max_lon,
-                "max_lat": max_lat,
-            },
-        )
+    async with _engine.connect() as conn:
+        result = await conn.execute(query)
         rows = result.mappings().all()
 
-    features = []
+    records: List[Dict[str, Any]] = []
     for row in rows:
-        lon = float(row["lon"])
-        lat = float(row["lat"])
-        risk_score = float(row["risk_score"] or 0)
-        risk_level = str(row["risk_level"] or "LOW").upper()
-        if risk_level not in {"LOW", "MODERATE", "HIGH", "CRITICAL"}:
-            risk_level = "LOW"
+        records.append({
+            "location_name": str(row["location_name"]),
+            "lat": float(row["lat"]),
+            "lon": float(row["lon"]),
+            "risk_score": float(row["risk_score"] or 0),
+            "risk_level": str(row["risk_level"] or "LOW").upper(),
+            "chlorophyll_a": float(row["chlorophyll_a"] or 0) if row["chlorophyll_a"] is not None else 0.0,
+            "sst_anomaly": float(row["sst_anomaly"] or 0) if row["sst_anomaly"] is not None else 0.0,
+            "detected_at": _isoformat(row["detected_at"]),
+        })
 
-        # TODO: refresh persisted scores through the risk engine when environmental inputs are ingested.
-        features.append(
-            {
-                "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": [lon, lat]},
-                "properties": {
-                    "location_name": f"Ocean grid cell ({lat:.3f}, {lon:.3f})",
-                    "risk_score": risk_score,
-                    "risk_level": risk_level,
-                    "chlorophyll_a": float(row["chlorophyll_a"] or 0),
-                    "sst_anomaly": float(row["sst_anomaly"] or 0),
-                    "detected_at": _isoformat(row["detected_at"]),
-                },
-            }
-        )
-
-    return {"type": "FeatureCollection", "features": features}
+    return records

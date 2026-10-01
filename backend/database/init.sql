@@ -9,6 +9,36 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS postgis_topology;
 
 -- ---------------------------------------------------------------------------
+-- Locations table (monitored coastal/marine stations)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS locations (
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(255) NOT NULL,
+    lat         DOUBLE PRECISION NOT NULL,
+    lon         DOUBLE PRECISION NOT NULL,
+    geometry    GEOMETRY(POINT, 4326)
+);
+
+CREATE INDEX IF NOT EXISTS idx_locations_geometry ON locations USING GIST(geometry);
+
+-- ---------------------------------------------------------------------------
+-- Risk Scores table (HAB risk scores associated with locations)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS risk_scores (
+    id            SERIAL PRIMARY KEY,
+    location_id   INTEGER NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
+    risk_score    DOUBLE PRECISION NOT NULL CHECK (risk_score >= 0 AND risk_score <= 100),
+    risk_level    VARCHAR(20) NOT NULL CHECK (risk_level IN ('LOW','MODERATE','HIGH','CRITICAL')),
+    chlorophyll_a DOUBLE PRECISION,
+    sst_anomaly   DOUBLE PRECISION,
+    detected_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_risk_scores_location_id ON risk_scores(location_id);
+CREATE INDEX IF NOT EXISTS idx_risk_scores_detected_at ON risk_scores(detected_at);
+CREATE INDEX IF NOT EXISTS idx_risk_scores_loc_detected ON risk_scores(location_id, detected_at DESC);
+
+-- ---------------------------------------------------------------------------
 -- HAB Events table
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS hab_events (
