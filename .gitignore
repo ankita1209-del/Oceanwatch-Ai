@@ -70,3 +70,4 @@ alerts/alert_log.jsonl
 # OS
 .DS_Store
 desktop.ini
+local_pgdata/
