@@ -8,7 +8,8 @@
 
 import axios from "axios";
 
-const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+const BASE_URL = API_BASE_URL;
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -50,6 +51,13 @@ export async function predictHAB(payload) {
 // ---------------------------------------------------------------------------
 // Risk Map
 // ---------------------------------------------------------------------------
+
+/** Fetch the current GeoJSON risk map from the backend. */
+export async function fetchRiskMap() {
+  const res = await fetch(`${API_BASE_URL}/api/risk-map`);
+  if (!res.ok) throw new Error("Failed to fetch risk map data");
+  return res.json();
+}
 
 /** Fetch GeoJSON risk map for Leaflet overlay. */
 export async function getRiskMap({ date = null, bbox = null } = {}) {

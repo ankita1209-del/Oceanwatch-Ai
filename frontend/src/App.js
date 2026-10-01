@@ -9,9 +9,9 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 import "./App.css";
 
-// Page placeholders — build these out in pages/
+// Page components
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
-const MapView   = React.lazy(() => import("./pages/MapView"));
+const RiskMap   = React.lazy(() => import("./pages/RiskMap"));
 const Events    = React.lazy(() => import("./pages/Events"));
 
 function App() {
@@ -34,9 +34,10 @@ function App() {
         <main className="main-content">
           <React.Suspense fallback={<div className="loading">Loading…</div>}>
             <Routes>
-              <Route path="/"       element={<Dashboard />} />
-              <Route path="/map"    element={<MapView />} />
-              <Route path="/events" element={<Events />} />
+              <Route path="/"         element={<Dashboard />} />
+              <Route path="/map"      element={<RiskMap />} />
+              <Route path="/risk-map" element={<RiskMap />} />
+              <Route path="/events"   element={<Events />} />
             </Routes>
           </React.Suspense>
         </main>
