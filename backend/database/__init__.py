@@ -1,21 +1,19 @@
 """Database package for OceanWatch AI."""
 
-from database.models import (
+from .models import (
     Base,
     Location,
     RiskScore,
     HABEvent,
-    RiskGrid,
+    Prediction,
     Alert,
-    EnvFeature,
 )
-from database.connection import (
-    sync_engine,
-    SessionLocal,
-    async_engine,
-    AsyncSessionLocal,
+from .connection import (
     get_db,
-    get_async_db,
+    get_optional_db,
+    create_tables,
+    probe_database,
+    close_database,
 )
 
 __all__ = [
@@ -23,13 +21,11 @@ __all__ = [
     "Location",
     "RiskScore",
     "HABEvent",
-    "RiskGrid",
+    "Prediction",
     "Alert",
-    "EnvFeature",
-    "sync_engine",
-    "SessionLocal",
-    "async_engine",
-    "AsyncSessionLocal",
     "get_db",
-    "get_async_db",
+    "get_optional_db",
+    "create_tables",
+    "probe_database",
+    "close_database",
 ]

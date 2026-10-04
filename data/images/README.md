@@ -12,6 +12,9 @@ Example: `20230715_28.5N_84.2W_MODIS.tif`
 - Copernicus Sentinel-3 OLCI (300m resolution)
 - VIIRS (375m resolution)
 
+## Current Sentinel-3 files
+Thirty-eight unique user-provided Sentinel-3 OLCI L3 GeoTIFFs for Western Lake Erie (2026-09-05 through 2026-09-25) are stored here with their original product filenames. One renamed copy was omitted because it is byte-identical to an existing file. The original download URLs were not supplied; see `data/raw/SOURCES.md` for this provenance note.
+
 ## Bands of interest
 | Band | Variable | Wavelength |
 |------|----------|-----------|

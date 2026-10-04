@@ -1,57 +1,31 @@
-"""
-Route: POST /api/alert
+"""Research-dashboard HAB alerts; no external notifications are sent."""
 
-Creates or triggers a HAB early-warning alert.
-"""
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from fastapi import APIRouter
-from pydantic import BaseModel, Field
-from typing import Optional
-from datetime import datetime
+from backend.database.connection import get_db
+from backend.database.schemas import AlertCreate, AlertResponse
+from backend.services.alert_service import create_alert, recent_alerts
 
 router = APIRouter()
 
 
-class AlertRequest(BaseModel):
-    lat: float
-    lon: float
-    risk_score: float
-    risk_level: str
-    message: Optional[str] = None
-    notify_email: Optional[str] = None
+@router.get("/alerts", response_model=list[AlertResponse])
+async def get_alerts(
+    limit: int = Query(default=50, ge=1, le=200),
+    acknowledged: bool | None = None,
+    session: AsyncSession = Depends(get_db),
+):
+    return await recent_alerts(session, limit=limit, acknowledged=acknowledged)
 
 
-class AlertResponse(BaseModel):
-    alert_id: str
-    created_at: datetime
-    status: str
-    risk_level: str
-    message: str
-
-
-@router.post("/alert", response_model=AlertResponse)
-async def create_alert(alert: AlertRequest):
-    """
-    Create a HAB early-warning alert.
-
-    TODO (Member 3 — Backend & Alert Engineer):
-    - Persist alert to database
-    - Send email / webhook notification
-    - Integrate with Celery task queue for async delivery
-    """
-    import uuid
-
-    alert_id = str(uuid.uuid4())[:8].upper()
-    message = alert.message or (
-        f"HAB {alert.risk_level} risk alert at ({alert.lat:.3f}, {alert.lon:.3f}). "
-        f"Risk score: {alert.risk_score:.1f}/100."
-    )
-
-    # TODO: persist to DB and send notification
-    return AlertResponse(
-        alert_id=alert_id,
-        created_at=datetime.utcnow(),
-        status="created",
-        risk_level=alert.risk_level,
-        message=message,
-    )
+@router.post("/alert", response_model=AlertResponse, status_code=201)
+async def post_alert(
+    request: AlertCreate, session: AsyncSession = Depends(get_db)
+):
+    try:
+        return await create_alert(session, request)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -1,32 +1,11 @@
-"""
-Risk Scoring Engine
-===================
-Implements the composite HAB risk score formula:
-
-    Risk Score = 0.40 × AI_Prediction
-               + 0.20 × Chl_Anomaly (normalised to 0–100)
-               + 0.15 × SST_Anomaly (normalised to 0–100)
-               + 0.15 × Historical_Risk (0–100)
-               + 0.10 × Environmental_Anomaly (0–100)
-
-Risk Bands:
-    0–30   → LOW
-    31–60  → MODERATE
-    61–80  → HIGH
-    81–100 → CRITICAL
-
-TODO (Member 3 — Backend & Alert Engineer):
-    - Tune weights on validation data once real model outputs are available
-    - Wire historical_risk to a database query
-    - Add statistical anomaly computation for env_anomaly
-"""
+"""Weighted HAB risk scoring using calibrated 0–100 components."""
 
 from dataclasses import dataclass
+from math import isfinite
 from typing import Literal
 
 RiskLevel = Literal["LOW", "MODERATE", "HIGH", "CRITICAL"]
 
-# Default weights — must sum to 1.0
 WEIGHTS = {
     "ai_prediction": 0.40,
     "chl_anomaly": 0.20,
@@ -36,85 +15,63 @@ WEIGHTS = {
 }
 
 
-@dataclass
+@dataclass(frozen=True)
 class RiskInput:
-    """All inputs needed to compute a composite risk score."""
-    ai_probability: float       # Model B output: 0.0–1.0
-    chl_anomaly_raw: float      # raw anomaly (mg/m³); converted internally
-    sst_anomaly_raw: float      # raw anomaly (°C); converted internally
-    historical_risk: float      # 0–100 from historical DB lookup
-    env_anomaly: float = 50.0   # 0–100 placeholder until wind/current model ready
+    ai_probability: float
+    chl_anomaly_score: float | None
+    sst_anomaly_score: float | None
+    historical_risk: float | None
+    env_anomaly_score: float | None
 
 
-@dataclass
+@dataclass(frozen=True)
 class RiskOutput:
     score: float
     level: RiskLevel
-    components: dict
+    components: dict[str, float]
 
 
-def _clamp(value: float, lo: float = 0.0, hi: float = 100.0) -> float:
-    return max(lo, min(hi, value))
+def _validate_score(name: str, value: float | None) -> float:
+    if value is None:
+        raise ValueError(f"{name} is unavailable; calibrated reference data is required")
+    if not isfinite(value) or not 0 <= value <= 100:
+        raise ValueError(f"{name} must be a finite value from 0 to 100")
+    return value
 
 
-def _chl_anomaly_to_score(anomaly: float) -> float:
-    """
-    Convert raw chlorophyll-a anomaly (mg/m³) to a 0–100 score.
-    Positive anomaly → higher risk. Scale: 2 mg/m³ anomaly ≈ 100.
-    """
-    return _clamp(anomaly * 50.0)
+def risk_level_for_score(score: float) -> RiskLevel:
+    if not isfinite(score) or not 0 <= score <= 100:
+        raise ValueError("Risk score must be a finite value from 0 to 100")
+    if score <= 30:
+        return "LOW"
+    if score <= 60:
+        return "MODERATE"
+    if score <= 80:
+        return "HIGH"
+    return "CRITICAL"
 
 
-def _sst_anomaly_to_score(anomaly: float) -> float:
-    """
-    Convert raw SST anomaly (°C) to a 0–100 score.
-    Positive anomaly (warmer than usual) → higher risk.
-    Scale: 4 °C anomaly ≈ 100.
-    """
-    return _clamp(anomaly * 25.0)
-
-
-def compute_risk_score(inp: RiskInput, weights: dict = WEIGHTS) -> RiskOutput:
-    """
-    Compute the composite HAB risk score from all inputs.
-
-    Args:
-        inp: RiskInput dataclass with all feature values
-        weights: weight dictionary (must sum to 1.0)
-
-    Returns:
-        RiskOutput with score (0–100), level, and per-component breakdown
-    """
-    ai_score = _clamp(inp.ai_probability * 100)
-    chl_score = _chl_anomaly_to_score(inp.chl_anomaly_raw)
-    sst_score = _sst_anomaly_to_score(inp.sst_anomaly_raw)
-    hist_score = _clamp(inp.historical_risk)
-    env_score = _clamp(inp.env_anomaly)
-
-    composite = (
-        weights["ai_prediction"]   * ai_score
-        + weights["chl_anomaly"]   * chl_score
-        + weights["sst_anomaly"]   * sst_score
-        + weights["historical_risk"] * hist_score
-        + weights["env_anomaly"]   * env_score
-    )
-    composite = round(_clamp(composite), 2)
-
-    if composite <= 30:
-        level: RiskLevel = "LOW"
-    elif composite <= 60:
-        level = "MODERATE"
-    elif composite <= 80:
-        level = "HIGH"
-    else:
-        level = "CRITICAL"
+def compute_risk_score(inp: RiskInput) -> RiskOutput:
+    if not isfinite(inp.ai_probability) or not 0 <= inp.ai_probability <= 1:
+        raise ValueError("ai_probability must be a finite value from 0 to 1")
 
     components = {
-        "ai_score": round(ai_score, 2),
-        "chl_score": round(chl_score, 2),
-        "sst_score": round(sst_score, 2),
-        "hist_score": round(hist_score, 2),
-        "env_score": round(env_score, 2),
+        "ai_score": inp.ai_probability * 100,
+        "chl_score": _validate_score("chl_anomaly_score", inp.chl_anomaly_score),
+        "sst_score": _validate_score("sst_anomaly_score", inp.sst_anomaly_score),
+        "hist_score": _validate_score("historical_risk", inp.historical_risk),
+        "env_score": _validate_score("env_anomaly_score", inp.env_anomaly_score),
     }
-
-    return RiskOutput(score=composite, level=level, components=components)
+    score = round(
+        WEIGHTS["ai_prediction"] * components["ai_score"]
+        + WEIGHTS["chl_anomaly"] * components["chl_score"]
+        + WEIGHTS["sst_anomaly"] * components["sst_score"]
+        + WEIGHTS["historical_risk"] * components["hist_score"]
+        + WEIGHTS["env_anomaly"] * components["env_score"],
+        2,
+    )
+    return RiskOutput(
+        score=score,
+        level=risk_level_for_score(score),
+        components={name: round(value, 2) for name, value in components.items()},
+    )

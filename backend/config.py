@@ -1,59 +1,34 @@
-"""
-OceanWatch AI — Application Configuration
-==========================================
-Reads settings from environment variables / .env file.
-"""
+"""Environment-based settings for the OceanWatch HAB API."""
 
 from functools import lru_cache
-from typing import List
 
-from pydantic_settings import BaseSettings
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # App
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
     APP_NAME: str = "OceanWatch AI"
     ENVIRONMENT: str = "development"
-    SECRET_KEY: str = "change_me_in_production"
-
-    # Database
-    DATABASE_URL: str = (
-        "postgresql+asyncpg://oceanwatch:oceanwatch_secret@localhost:5432/oceanwatch"
-    )
+    DATABASE_URL: str = ""
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
+    PREDICTION_MODEL_PATH: str = "models/prediction/xgboost_model.pkl"
+    MODEL_METADATA_PATH: str = "models/prediction/model_metadata.json"
+    ANOMALY_BASELINE_PATH: str = "data/processed/anomaly_baselines.json"
+    ALERT_THRESHOLD: float = Field(default=61, ge=0, le=100)
 
     @property
     def SYNC_DATABASE_URL(self) -> str:
         """Synchronous connection string for Alembic and migrations."""
         return self.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
 
-    # Redis (optional — for Celery tasks)
-    REDIS_URL: str = "redis://localhost:6379/0"
-
-    # CORS — React dev server
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-    ]
-
-    # ML model paths
-    DETECTION_MODEL_PATH: str = "models/detection/model.pt"
-    PREDICTION_MODEL_PATH: str = "models/prediction/model.json"
-
-    # Risk scoring weights (must sum to 1.0)
-    W_AI_PREDICTION: float = 0.40
-    W_CHL_ANOMALY: float = 0.20
-    W_SST_ANOMALY: float = 0.15
-    W_HISTORICAL_RISK: float = 0.15
-    W_ENV_ANOMALY: float = 0.10
-
-    class Config:
-        env_file = (".env", "../.env")
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    @property
+    def ALLOWED_ORIGINS(self) -> list[str]:
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
 
-@lru_cache()
+@lru_cache
+
 def get_settings() -> Settings:
     return Settings()

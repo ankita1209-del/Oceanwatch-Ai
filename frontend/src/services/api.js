@@ -17,6 +17,19 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+/** Backend process plus PostgreSQL/PostGIS state. */
+export async function getHealth() {
+  const { data } = await api.get("/health");
+  return data;
+}
+
+export function apiFailureMessage(error) {
+  if (!error?.response) return "Unable to connect to the OceanWatch AI backend.";
+  if (error.response.status === 503) return "Backend is running, but the database is unavailable.";
+  const detail = error.response.data?.detail;
+  return typeof detail === "string" ? detail : detail?.detail || detail?.error || `OceanWatch API request failed (${error.response.status}).`;
+}
+
 // ---------------------------------------------------------------------------
 // HAB Events
 // ---------------------------------------------------------------------------
@@ -88,6 +101,12 @@ export async function getHistory({ lat, lon, startDate = null, endDate = null, l
 /** Create a HAB alert. */
 export async function createAlert(payload) {
   const { data } = await api.post("/api/alert", payload);
+  return data;
+}
+
+/** Fetch recent research-dashboard HAB alerts. */
+export async function getAlerts({ limit = 20 } = {}) {
+  const { data } = await api.get("/api/alerts", { params: { limit } });
   return data;
 }
 

@@ -1,10 +1,4 @@
--- =============================================================================
--- OceanWatch AI — PostgreSQL + PostGIS Initialisation Script
--- =============================================================================
--- Run automatically by Docker on first container startup.
--- =============================================================================
-
--- Enable PostGIS spatial extension
+-- PostGIS is used by SQLAlchemy Geography columns in backend/database/models.py.
 CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS postgis_topology;
 
