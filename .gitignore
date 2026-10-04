@@ -30,6 +30,8 @@ data/labels/masks/
 !data/raw/SOURCES.md
 !data/processed/README.md
 !data/images/README.md
+!data/images/sentinel-3.*.greenbay.tif
+!data/images/sentinel-3.*.LakeOkee.tif
 !data/labels/README.md
 
 # Model weights (large binary files — use DVC or shared storage)

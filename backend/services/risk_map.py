@@ -7,10 +7,20 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from config import get_settings
+from backend.config import get_settings
 
-settings = get_settings()
-_engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)
+# Lazy engine — only created when DATABASE_URL is available.
+_engine = None
+
+
+def _get_engine():
+    global _engine
+    if _engine is None:
+        url = get_settings().DATABASE_URL
+        if not url:
+            raise RuntimeError("DATABASE_URL is not configured")
+        _engine = create_async_engine(url, pool_pre_ping=True)
+    return _engine
 
 
 def _isoformat(value: Any) -> str:
