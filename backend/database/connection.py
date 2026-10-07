@@ -29,7 +29,11 @@ def _get_session_factory():
     if not database_url:
         return None
     if _session_factory is None:
-        _engine = create_async_engine(database_url, pool_pre_ping=True)
+        _engine = create_async_engine(
+            database_url,
+            pool_pre_ping=True,
+            connect_args={"timeout": 5},
+        )
         _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
     return _session_factory
 
@@ -118,21 +122,50 @@ async def create_tables() -> None:
 async def probe_database() -> dict[str, str | None]:
     """Check PostgreSQL and PostGIS availability without exposing connection details."""
     if not get_settings().DATABASE_URL:
-        return {"status": "not_configured", "postgis": "not_checked"}
-    factory = _get_session_factory()
+        return {
+            "status": "not_configured",
+            "postgis": "not_checked",
+            "database_error": "DATABASE_URL is not configured",
+            "postgis_error": None,
+        }
     try:
+        factory = _get_session_factory()
+        if factory is None:
+            return {
+                "status": "not_configured",
+                "postgis": "not_checked",
+                "database_error": "DATABASE_URL is not configured",
+                "postgis_error": None,
+            }
         async with factory() as session:
             await session.execute(text("SELECT 1"))
     except Exception as exc:
-        logger.warning("PostgreSQL health probe failed (%s)", type(exc).__name__)
-        return {"status": "unavailable", "postgis": "unavailable"}
+        logger.exception("PostgreSQL health probe failed")
+        return {
+            "status": "unavailable",
+            "postgis": "not_checked",
+            "database_error": type(exc).__name__,
+            "postgis_error": None,
+        }
     try:
         async with factory() as session:
             version = await session.scalar(text("SELECT PostGIS_Version()"))
-        return {"status": "connected", "postgis": "available", "postgis_version": version}
+        return {
+            "status": "connected",
+            "postgis": "available",
+            "postgis_version": version,
+            "database_error": None,
+            "postgis_error": None,
+        }
     except Exception as exc:
-        logger.warning("PostGIS health probe failed (%s)", type(exc).__name__)
-        return {"status": "connected", "postgis": "unavailable", "postgis_version": None}
+        logger.exception("PostGIS health probe failed")
+        return {
+            "status": "connected",
+            "postgis": "unavailable",
+            "postgis_version": None,
+            "database_error": None,
+            "postgis_error": type(exc).__name__,
+        }
 
 
 async def close_database() -> None:

@@ -24,7 +24,7 @@ python -m pip install -r backend/requirements.txt
 Copy-Item .env.example .env
 ```
 
-Fill in a local PostgreSQL username and password in `.env`. Never commit `.env`.
+Set a real local PostgreSQL password in `.env`. Never commit `.env`.
 
 ## PostgreSQL and PostGIS
 
@@ -37,16 +37,33 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 The API creates SQLAlchemy tables at startup after connecting. Configure `DATABASE_URL` using the async driver, for example:
 
 ```text
-DATABASE_URL=postgresql+asyncpg://USER:PASSWORD@localhost:5432/oceanwatch
+DATABASE_URL=postgresql+asyncpg://USER:PASSWORD@localhost:5435/oceanwatch
 ```
 
-For a new local database, Docker Compose can initialize PostGIS and run the API after you copy/configure `.env`:
+This project uses PostgreSQL with the real PostGIS server extension. A plain PostgreSQL install without the PostGIS extension is not sufficient. On Windows, install PostGIS for the same PostgreSQL major version with Stack Builder, then verify the extension from the database:
 
 ```powershell
-docker compose up --build db backend
+psql -h 127.0.0.1 -p 5434 -U oceanwatch -d oceanwatch -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+psql -h 127.0.0.1 -p 5434 -U oceanwatch -d oceanwatch -c "SELECT PostGIS_Version();"
 ```
 
-Existing databases created by the earlier prototype schema may need a one-time migration before use; `create_all` does not rewrite old table layouts. Back up the database before changing an existing schema.
+For this repository's existing PostgreSQL 18 development data directory, start the cluster from the repository root with:
+
+```powershell
+& 'C:\Program Files\PostgreSQL\18\bin\pg_ctl.exe' start -D .\local_pgdata -l .\local_pgdata\server.log -w
+```
+
+That local cluster currently uses trust authentication on loopback only. Keep it local; do not use that authentication mode in production. The separate Windows PostgreSQL service on port `5432` is not the project's configured database.
+
+For a fresh PostGIS database using Docker Desktop, Compose maps the container to host port `5435` by default so it does not collide with a standard local PostgreSQL service on `5432`:
+
+```powershell
+Copy-Item .env.example .env
+# Edit .env and replace the example password before starting.
+docker compose up --build
+```
+
+The API will not create tables if PostGIS is missing; it logs the actual startup error and remains available for diagnostics. It does not drop or recreate existing tables. Existing databases created by the earlier prototype schema may need a reviewed migration because SQLAlchemy `create_all` does not rewrite old table layouts. Back up the database before changing an existing schema.
 
 Check the actual connection, PostGIS extension, required tables, row counts, date range, and coordinate validity with:
 
@@ -68,8 +85,8 @@ From the repository root:
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-API base: `http://localhost:8000`; Swagger: `http://localhost:8000/docs`; health: `http://localhost:8000/health`.
-`/health` reports PostgreSQL, PostGIS, and prediction-artifact availability separately. The API can stay up for diagnostics when the database is unavailable; data routes return HTTP 503.
+API base: `http://localhost:8000`; Swagger: `http://localhost:8000/docs`; health: `http://localhost:8000/api/health` (`/health` remains an alias).
+The health response reports API, PostgreSQL, PostGIS, and prediction-artifact availability separately. Database/PostGIS failure categories are returned safely, and full exceptions are written to backend logs. The API stays available for diagnostics when the database is unavailable; data routes return HTTP 503.
 
 After starting the API, check the required endpoints with concise response summaries:
 

@@ -2,7 +2,10 @@
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import create_engine, text
 
+from backend.config import Settings
+from backend.database.compat import ensure_postgis_compat
 from backend.database.connection import get_db, get_optional_db
 from backend.main import app
 
@@ -44,13 +47,42 @@ async def test_root_and_health():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         root = await client.get("/")
         health = await client.get("/health")
+        api_health = await client.get("/api/health")
     assert root.status_code == 200
     assert root.json()["service"] == "OceanWatch AI"
     assert health.status_code == 200
+    assert api_health.status_code == 200
     assert health.json()["status"] == "healthy"
+    assert api_health.json()["api"] == "online"
+    assert api_health.json()["database"] == health.json()["database"]
+    assert "database_error" in api_health.json()
+    assert "postgis_error" in api_health.json()
     assert health.json()["database"] in {"connected", "not_configured", "unavailable"}
     assert health.json()["postgis"] in {"available", "not_checked", "unavailable"}
     assert health.json()["prediction_model"] in {"available", "not_available"}
+
+
+def test_sync_database_url_uses_psycopg2_driver():
+    settings = Settings(
+        DATABASE_URL="postgresql+asyncpg://user:example@127.0.0.1:5432/oceanwatch"
+    )
+    assert settings.SYNC_DATABASE_URL == (
+        "postgresql+psycopg2://user:example@127.0.0.1:5432/oceanwatch"
+    )
+
+
+def test_postgis_compat_requires_real_extension_without_creating_stubs():
+    engine = create_engine("sqlite://")
+    try:
+        with pytest.raises(RuntimeError, match="Install PostGIS"):
+            ensure_postgis_compat(engine)
+        with engine.connect() as connection:
+            objects = connection.execute(
+                text("SELECT name FROM sqlite_master WHERE type IN ('table', 'view')")
+            ).all()
+        assert objects == []
+    finally:
+        engine.dispose()
 
 
 @pytest.mark.asyncio

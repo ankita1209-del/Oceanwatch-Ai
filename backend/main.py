@@ -76,13 +76,17 @@ async def root():
 
 
 @app.get("/health")
+@app.get("/api/health")
 async def health():
     database = await probe_database()
     model_available = Path(settings.PREDICTION_MODEL_PATH).is_file()
     return {
         "status": "healthy",
+        "api": "online",
         "database": database["status"],
+        "database_error": database.get("database_error"),
         "postgis": database["postgis"],
+        "postgis_error": database.get("postgis_error"),
         "postgis_version": database.get("postgis_version"),
         "prediction_model": "available" if model_available else "not_available",
     }

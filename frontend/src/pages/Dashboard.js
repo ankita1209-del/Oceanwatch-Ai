@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [alerts, setAlerts] = useState([]);
   const [geoData, setGeoData] = useState(null);
   const [dataError, setDataError] = useState(null);
+  const [healthStatus, setHealthStatus] = useState({ api: "checking", database: "checking", postgis: "checking" });
   const [loading, setLoading] = useState(true);
   const [predictLoading, setPredictLoading] = useState(false);
   const [predictionResult, setPredictionResult] = useState(null);
@@ -50,18 +51,37 @@ export default function Dashboard() {
           .catch((r) => ({ status: "rejected", reason: r }));
 
         if (healthResult.status === "rejected") {
+          setHealthStatus({ api: "offline", database: "unknown", postgis: "unknown" });
           setDataError(apiFailureMessage(healthResult.reason));
           return;
         }
 
-        setPredictionModelAvailable(healthResult.value.prediction_model === "available");
+        const health = healthResult.value;
+        const databaseStatus = health.database === "connected"
+          ? "connected"
+          : health.database === "not_configured"
+            ? "not configured"
+            : "unavailable";
+        const postgisStatus = health.postgis === "available"
+          ? "available"
+          : health.postgis === "not_checked"
+            ? "not checked"
+            : "unavailable";
+        setHealthStatus({
+          api: health.api === "online" ? "online" : "offline",
+          database: databaseStatus,
+          postgis: postgisStatus,
+        });
+        setPredictionModelAvailable(health.prediction_model === "available");
 
-        if (healthResult.value.database !== "connected") {
-          setDataError("Backend is running, but the database is unavailable.");
+        if (health.database !== "connected") {
+          const diagnostic = health.database_error ? ` (${health.database_error})` : "";
+          setDataError(`Backend is online, but the database is ${databaseStatus}${diagnostic}.`);
           return;
         }
-        if (healthResult.value.postgis !== "available") {
-          setDataError("PostgreSQL is connected, but PostGIS is unavailable.");
+        if (health.postgis !== "available") {
+          const diagnostic = health.postgis_error ? ` (${health.postgis_error}; see backend logs)` : "";
+          setDataError(`PostgreSQL is connected, but PostGIS is ${postgisStatus}${diagnostic}.`);
           return;
         }
 
@@ -131,11 +151,14 @@ export default function Dashboard() {
         <p className="page-subtitle">
           Harmful Algal Bloom observations and model-estimated risk — research decision support only.
         </p>
+        <p className="page-subtitle" role="status" aria-live="polite">
+          Backend: {healthStatus.api.toUpperCase()} | Database: {healthStatus.database.toUpperCase()} | PostGIS: {healthStatus.postgis.toUpperCase()}
+        </p>
       </div>
 
       {dataError && (
         <div className="error-banner" role="alert">
-          {dataError} Check the API and PostgreSQL connection.
+          {dataError}
         </div>
       )}
 

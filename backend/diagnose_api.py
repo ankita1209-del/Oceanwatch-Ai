@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 BASE_URL = os.environ.get("OCEANWATCH_API_URL", "http://localhost:8000").rstrip("/")
 ENDPOINTS = (
     ("GET", "/", None),
-    ("GET", "/health", None),
+    ("GET", "/api/health", None),
     ("GET", "/docs", None),
     ("GET", "/api/events?limit=5", "events"),
     ("GET", "/api/history?lat=0&lon=0&limit=5", "history"),
