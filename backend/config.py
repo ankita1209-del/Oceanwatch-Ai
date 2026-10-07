@@ -11,9 +11,10 @@ class Settings(BaseSettings):
 
     APP_NAME: str = "OceanWatch AI"
     ENVIRONMENT: str = "development"
-    DATABASE_URL: str = ""
+    DATABASE_URL: str = "sqlite+aiosqlite:///oceanwatch.db"
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001"
     PREDICTION_MODEL_PATH: str = "models/prediction/xgboost_model.pkl"
+    DETECTION_MODEL_PATH: str = "models/detection/hab_image_model.joblib"
     MODEL_METADATA_PATH: str = "models/prediction/model_metadata.json"
     ANOMALY_BASELINE_PATH: str = "data/processed/anomaly_baselines.json"
     ALERT_THRESHOLD: float = Field(default=61, ge=0, le=100)
@@ -21,6 +22,8 @@ class Settings(BaseSettings):
     @property
     def SYNC_DATABASE_URL(self) -> str:
         """Synchronous connection string for Alembic and migrations."""
+        if self.DATABASE_URL.startswith("sqlite+aiosqlite://"):
+            return self.DATABASE_URL.replace("sqlite+aiosqlite://", "sqlite://", 1)
         if self.DATABASE_URL.startswith("postgresql+asyncpg://"):
             return self.DATABASE_URL.replace(
                 "postgresql+asyncpg://", "postgresql+psycopg2://", 1

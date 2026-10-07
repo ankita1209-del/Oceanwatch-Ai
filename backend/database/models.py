@@ -3,6 +3,7 @@
 from datetime import date, datetime, timezone
 
 from geoalchemy2 import Geography, Geometry
+from geoalchemy2.admin.dialects import sqlite as geo_sqlite
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -17,7 +18,18 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+# Allow Geometry/Geography columns to be stored as BLOB when running on SQLite
+@compiles(Geography, "sqlite")
+@compiles(Geometry, "sqlite")
+def compile_geom_sqlite(type_, compiler, **kw):
+    return "BLOB"
+
+# Disable SpatiaLite C-extension calls when running with SQLite
+geo_sqlite.before_create = lambda *args, **kw: None
+geo_sqlite.after_create = lambda *args, **kw: None
 
 
 class Base(DeclarativeBase):
@@ -104,7 +116,10 @@ class HABEvent(Base):
     source: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     source_record_id: Mapped[str | None] = mapped_column(String(120))
-    location = mapped_column(Geography(geometry_type="POINT", srid=4326), nullable=True)
+    risk_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    risk_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    location = mapped_column(Geography(geometry_type="POINT", srid=4326, spatial_index=False), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -139,7 +154,7 @@ class Prediction(Base):
     ocean_current: Mapped[float | None] = mapped_column(Float)
     historical_hab_risk: Mapped[float | None] = mapped_column(Float)
     model_name: Mapped[str] = mapped_column(String(120), nullable=False)
-    location = mapped_column(Geography(geometry_type="POINT", srid=4326), nullable=True)
+    location = mapped_column(Geography(geometry_type="POINT", srid=4326, spatial_index=False), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -167,4 +182,4 @@ class Alert(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
-    location = mapped_column(Geography(geometry_type="POINT", srid=4326), nullable=True)
+    location = mapped_column(Geography(geometry_type="POINT", srid=4326, spatial_index=False), nullable=True)

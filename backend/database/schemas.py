@@ -44,7 +44,13 @@ class HABEventResponse(BaseModel):
     source_record_id: str | None = None
     description: str | None
     risk_score: float | None = None
+    risk_level: str | None = None
+    confidence: float | None = None
     created_at: datetime
+
+    @property
+    def event_id(self) -> str:
+        return f"HAB-{self.id:03d}"
 
 
 class PredictionResponse(BaseModel):
