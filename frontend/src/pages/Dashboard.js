@@ -1,351 +1,147 @@
 import React, { useEffect, useState } from "react";
-import {
-  apiFailureMessage,
-  getAlerts,
-  getEvents,
-  getHealth,
-  getRiskMap,
-  predictHAB,
-} from "../services/api";
+import { NavLink } from "react-router-dom";
+import { getEvents, getHealth, getRiskMap } from "../services/api";
+import "./Dashboard.css";
 
-const SEVERITY_CLASS = {
-  CRITICAL: "badge-critical",
-  HIGH:     "badge-high",
-  MODERATE: "badge-moderate",
-  LOW:      "badge-low",
-};
+function WaveMark() {
+  return (
+    <svg viewBox="0 0 38 38" fill="none" aria-hidden="true">
+      <path d="M5 16c4.7 0 4.7-4.5 9.4-4.5s4.7 4.5 9.4 4.5 4.7-4.5 9.4-4.5M5 23c4.7 0 4.7-4.5 9.4-4.5s4.7 4.5 9.4 4.5 4.7-4.5 9.4-4.5M5 30c4.7 0 4.7-4.5 9.4-4.5s4.7 4.5 9.4 4.5 4.7-4.5 9.4-4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+const FEATURES = [
+  { number: "01", title: "Detect HAB events", description: "Browse recorded harmful algal bloom observations, species, locations, and severity." },
+  { number: "02", title: "Estimate risk", description: "Explore model-estimated HAB risk using environmental measurements and historical observations." },
+  { number: "03", title: "Track conditions", description: "Review chlorophyll-a, sea-surface temperature, and other available ocean context." },
+];
 
 export default function Dashboard() {
+  const [health, setHealth] = useState(null);
   const [events, setEvents] = useState([]);
-  const [alerts, setAlerts] = useState([]);
-  const [geoData, setGeoData] = useState(null);
-  const [dataError, setDataError] = useState(null);
-  const [healthStatus, setHealthStatus] = useState({ api: "checking", database: "checking", postgis: "checking" });
-  const [loading, setLoading] = useState(true);
-  const [predictLoading, setPredictLoading] = useState(false);
-  const [predictionResult, setPredictionResult] = useState(null);
-  const [predictionError, setPredictionError] = useState(null);
-  const [predictionModelAvailable, setPredictionModelAvailable] = useState(null);
-
-  const [predForm, setPredForm] = useState({
-    lat: "",
-    lon: "",
-    date: new Date().toISOString().split("T")[0],
-    sst_mean: "",
-    sst_anomaly: "",
-    chl_a_mean: "",
-    chl_anomaly: "",
-    turbidity: "",
-    wind_speed: "",
-    wind_direction: "",
-    current_speed: "",
-    historical_hab_7d: "",
-  });
+  const [features, setFeatures] = useState([]);
+  const [updatedAt, setUpdatedAt] = useState(null);
 
   useEffect(() => {
-    async function fetchData() {
+    let active = true;
+    async function loadSnapshot() {
+      let status;
       try {
-        setLoading(true);
-        const healthResult = await getHealth()
-          .then((v) => ({ status: "fulfilled", value: v }))
-          .catch((r) => ({ status: "rejected", reason: r }));
-
-        if (healthResult.status === "rejected") {
-          setHealthStatus({ api: "offline", database: "unknown", postgis: "unknown" });
-          setDataError(apiFailureMessage(healthResult.reason));
-          return;
-        }
-
-        const health = healthResult.value;
-        const databaseStatus = health.database === "connected"
-          ? "connected"
-          : health.database === "not_configured"
-            ? "not configured"
-            : "unavailable";
-        const postgisStatus = health.postgis === "available"
-          ? "available"
-          : health.postgis === "not_checked"
-            ? "not checked"
-            : "unavailable";
-        setHealthStatus({
-          api: health.api === "online" ? "online" : "offline",
-          database: databaseStatus,
-          postgis: postgisStatus,
-        });
-        setPredictionModelAvailable(health.prediction_model === "available");
-
-        if (health.database !== "connected") {
-          const diagnostic = health.database_error ? ` (${health.database_error})` : "";
-          setDataError(`Backend is online, but the database is ${databaseStatus}${diagnostic}.`);
-          return;
-        }
-        if (health.postgis !== "available") {
-          const diagnostic = health.postgis_error ? ` (${health.postgis_error}; see backend logs)` : "";
-          setDataError(`PostgreSQL is connected, but PostGIS is ${postgisStatus}${diagnostic}.`);
-          return;
-        }
-
-        const results = await Promise.allSettled([getEvents(), getRiskMap(), getAlerts()]);
-        const errors = [];
-        if (results[0].status === "fulfilled") setEvents(results[0].value || []);
-        else errors.push(apiFailureMessage(results[0].reason));
-        if (results[1].status === "fulfilled") setGeoData(results[1].value);
-        else errors.push(apiFailureMessage(results[1].reason));
-        if (results[2].status === "fulfilled") setAlerts(results[2].value || []);
-        else errors.push(apiFailureMessage(results[2].reason));
-        setDataError(errors.length ? errors.join(" ") : null);
-      } catch (err) {
-        console.error("Dashboard data load error:", err);
-      } finally {
-        setLoading(false);
+        status = await getHealth();
+        if (active) setHealth(status);
+      } catch (error) {
+        console.error("Unable to load OceanWatch service health:", error);
       }
+      if (status?.database === "connected" && status?.postgis === "available") {
+        const results = await Promise.allSettled([getEvents({ limit: 100 }), getRiskMap()]);
+        if (!active) return;
+        if (results[0].status === "fulfilled") setEvents(results[0].value || []);
+        if (results[1].status === "fulfilled") setFeatures(results[1].value?.features || []);
+      }
+      if (active) setUpdatedAt(new Date());
     }
-    fetchData();
+    loadSnapshot();
+    return () => { active = false; };
   }, []);
 
-  const handlePredict = async (e) => {
-    e.preventDefault();
-    try {
-      setPredictLoading(true);
-      setPredictionError(null);
-      const res = await predictHAB({
-        ...predForm,
-        lat: parseFloat(predForm.lat),
-        lon: parseFloat(predForm.lon),
-        sst_mean: Number(predForm.sst_mean),
-        sst_anomaly: Number(predForm.sst_anomaly),
-        chl_a_mean: Number(predForm.chl_a_mean),
-        chl_anomaly: Number(predForm.chl_anomaly),
-        turbidity: Number(predForm.turbidity),
-        wind_speed: Number(predForm.wind_speed),
-        wind_direction: Number(predForm.wind_direction),
-        current_speed: predForm.current_speed === "" ? null : Number(predForm.current_speed),
-        historical_hab_7d: parseInt(predForm.historical_hab_7d, 10),
-      });
-      setPredictionResult(res);
-    } catch (err) {
-      const detail = err.response?.data?.detail;
-      setPredictionError(
-        typeof detail === "string"
-          ? detail
-          : detail?.detail || detail?.error ||
-            "Prediction is unavailable. Ensure a trained model, calibrated baselines, and database are configured."
-      );
-    } finally {
-      setPredictLoading(false);
-    }
-  };
-
-  const features       = geoData?.features || [];
-  const criticalCount  = features.filter((f) => f.properties?.risk_level === "CRITICAL").length;
-  const highCount      = features.filter((f) => f.properties?.risk_level === "HIGH").length;
-
-  const riskBadgeClass = (level) =>
-    level === "HIGH" || level === "CRITICAL" ? "badge badge-" + level.toLowerCase() : "badge badge-low";
+  const observationCount = health?.database === "connected" ? events.length.toLocaleString() : "—";
+  const riskCount = health?.database === "connected" ? features.length.toLocaleString() : "—";
+  const healthStatus = health?.api === "online" ? "OceanWatch systems online" : "Connecting to ocean data";
 
   return (
-    <div className="page-wrapper">
-      {/* Page header */}
-      <div className="page-header">
-        <h1 className="page-title">OceanWatch AI Dashboard</h1>
-        <p className="page-subtitle">
-          Harmful Algal Bloom observations and model-estimated risk — research decision support only.
-        </p>
-        <p className="page-subtitle" role="status" aria-live="polite">
-          Backend: {healthStatus.api.toUpperCase()} | Database: {healthStatus.database.toUpperCase()} | PostGIS: {healthStatus.postgis.toUpperCase()}
-        </p>
-      </div>
+    <div className="ocean-landing" id="top">
+      <section className="ocean-hero">
+        <header className="landing-nav">
+          <NavLink className="landing-brand" to="/" aria-label="OceanWatch AI home">
+            <span className="landing-brand-mark"><WaveMark /></span>
+            <span className="landing-brand-type"><strong>OCEANWATCH</strong><small>COASTAL INTELLIGENCE</small></span>
+          </NavLink>
+          <nav className="landing-nav-links" aria-label="Main navigation">
+            <a href="#top">Home</a>
+            <a href="#approach">Our approach</a>
+            <a href="#signals">Ocean signals</a>
+            <NavLink to="/map">Risk map</NavLink>
+            <NavLink to="/history">History</NavLink>
+          </nav>
+          <NavLink className="landing-nav-cta" to="/map">Explore map <span>↗</span></NavLink>
+          <a className="landing-mobile-map" href="#signals" aria-label="Jump to ocean signals">↓</a>
+        </header>
 
-      {dataError && (
-        <div className="error-banner" role="alert">
-          {dataError}
-        </div>
-      )}
-
-      {/* Summary stats */}
-      <div className="stat-grid">
-        {[
-          { label: "HAB Observations",          value: loading ? "—" : dataError ? "—" : events.length,   cls: "critical" },
-          { label: "Critical Risk Zones",        value: loading ? "—" : dataError ? "—" : criticalCount,  cls: "critical" },
-          { label: "High Risk Zones",            value: loading ? "—" : dataError ? "—" : highCount,       cls: "high"     },
-          { label: "Stored Prediction Locations",value: loading ? "—" : dataError ? "—" : features.length, cls: "accent"   },
-        ].map((card) => (
-          <div key={card.label} className={`stat-card ${card.cls}`}>
-            <div className="stat-value">{card.value}</div>
-            <div className="stat-label">{card.label}</div>
+        <div className="hero-copy">
+          <div className="hero-kicker"><span className="hero-kicker-line" /> EARLY SIGNALS FOR HARMFUL ALGAL BLOOMS</div>
+          <h1>The sea we breathe.<br /><em>The ocean we watch.</em></h1>
+          <p>Explore reported HAB observations and research-model risk estimates alongside the ocean conditions that can influence bloom development.</p>
+          <div className="hero-actions">
+            <NavLink className="hero-button hero-button-gold" to="/map">Explore HAB risk <span>↗</span></NavLink>
+            <a className="hero-button hero-button-outline" href="#approach">How it works <span>↓</span></a>
           </div>
-        ))}
-      </div>
-
-      {/* Two-column layout */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "1.5rem" }}>
-
-        {/* Recent HAB Events */}
-        <div className="card">
-          <h2 className="card-title">Recent Detected HAB Events</h2>
-          {events.length === 0 ? (
-            <p style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
-              {dataError
-                ? "HAB observations unavailable until the database connection is restored."
-                : "No HAB observations are currently available."}
-            </p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
-              {events.slice(0, 6).map((ev) => (
-                <div
-                  key={ev.id}
-                  style={{
-                    padding: "0.9rem",
-                    background: "var(--bg-subtle)",
-                    borderRadius: "var(--radius)",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.4rem" }}>
-                    <span style={{ fontWeight: 600, fontSize: "0.9rem", color: "var(--text-primary)" }}>
-                      {ev.species || "Unspecified Algae"}
-                    </span>
-                    <span className={`badge ${SEVERITY_CLASS[ev.severity] || "badge-low"}`}>
-                      {ev.severity || "Unknown"}{ev.risk_score != null ? ` — ${ev.risk_score}%` : ""}
-                    </span>
-                  </div>
-                  {ev.description && (
-                    <p style={{ fontSize: "0.825rem", color: "var(--text-secondary)", marginBottom: "0.4rem" }}>
-                      {ev.description}
-                    </p>
-                  )}
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "flex", justifyContent: "space-between" }}>
-                    <span>Lat: {ev.lat}, Lon: {ev.lon}</span>
-                    <span>Source: {ev.source}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="hero-live"><span className={health?.api === "online" ? "hero-live-dot connected" : "hero-live-dot"} />{healthStatus}</div>
         </div>
 
-        {/* HAB Risk Predictor */}
-        <div className="card">
-          <h2 className="card-title">Model B — HAB Risk Prediction</h2>
-          <p style={{ fontSize: "0.825rem", color: "var(--text-muted)", marginBottom: "1rem" }}>
-            Enter measured values from a documented data source. This is a research prototype and not an official advisory.
-          </p>
-
-          {predictionModelAvailable === false && (
-            <div className="info-banner">No trained HAB prediction model is currently available.</div>
-          )}
-
-          <form onSubmit={handlePredict} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.7rem" }}>
-            {[
-              ["lat",               "Latitude",                    "any", -90,  90    ],
-              ["lon",               "Longitude",                   "any", -180, 180   ],
-              ["sst_mean",          "SST Mean (°C)",               "any"             ],
-              ["sst_anomaly",       "SST Anomaly (°C)",            "any"             ],
-              ["chl_a_mean",        "Chlorophyll-a Mean (mg/m³)",  "any"             ],
-              ["chl_anomaly",       "Chlorophyll-a Anomaly",       "any"             ],
-              ["turbidity",         "Turbidity",                   "any", 0          ],
-              ["wind_speed",        "Wind Speed",                  "any", 0          ],
-              ["wind_direction",    "Wind Direction (degrees)",    "1",   0,    360   ],
-              ["current_speed",     "Ocean Current Speed",         "any", 0          ],
-              ["historical_hab_7d", "Observed HAB Count (7 days)", "1",   0          ],
-            ].map(([name, label, step, min, max]) => (
-              <div className="form-group" key={name}>
-                <label htmlFor={`pred-${name}`}>{label}</label>
-                <input
-                  id={`pred-${name}`}
-                  type="number"
-                  step={step}
-                  min={min}
-                  max={max}
-                  required={name !== "current_speed"}
-                  value={predForm[name]}
-                  onChange={(e) => setPredForm({ ...predForm, [name]: e.target.value })}
-                />
-              </div>
-            ))}
-
-            <div style={{ gridColumn: "span 2", marginTop: "0.35rem" }}>
-              <button type="submit" disabled={predictLoading} className="btn btn-primary btn-full">
-                {predictLoading ? "Evaluating Risk…" : "Run HAB Risk Inference"}
-              </button>
-            </div>
-          </form>
-
-          {predictionError && (
-            <p role="alert" style={{ color: "var(--risk-critical)", fontSize: "0.825rem", marginTop: "0.9rem" }}>
-              {predictionError}
-            </p>
-          )}
-
-          {predictionResult && (
-            <div className="result-box">
-              <div className="result-row">
-                <span>Risk Level</span>
-                <strong className={`badge ${riskBadgeClass(predictionResult.risk_level)}`}>
-                  {predictionResult.risk_level}
-                </strong>
-              </div>
-              <div className="result-row">
-                <span>Composite Risk Score</span>
-                <strong>{predictionResult.risk_score} / 100</strong>
-              </div>
-              <div className="result-row">
-                <span>HAB Probability</span>
-                <strong>{(predictionResult.hab_probability * 100).toFixed(1)}%</strong>
-              </div>
-              <div className="result-row">
-                <span>Confidence</span>
-                <span>
-                  {predictionResult.confidence == null
-                    ? "Unavailable"
-                    : `${(predictionResult.confidence * 100).toFixed(1)}%`}
-                </span>
-              </div>
-              <div className="result-row">
-                <span>Model Version</span>
-                <span>{predictionResult.model_version}</span>
-              </div>
-            </div>
-          )}
+        <div className="hero-location">
+          <div className="location-mark"><WaveMark /></div>
+          <div><span>OCEANWATCH RESEARCH MONITORING</span><strong>Observations, conditions &amp; risk estimates</strong></div>
         </div>
-      </div>
+        <div className="hero-scroll-cue"><span /> SCROLL TO EXPLORE</div>
+        <div className="hero-disclaimer">A research prototype · Not an official public-health advisory</div>
+      </section>
 
-      {/* Alerts section */}
-      <div className="card">
-        <h2 className="card-title">Recent HAB Research Alerts</h2>
-        {alerts.length === 0 ? (
-          <p style={{ fontSize: "0.875rem", color: "var(--text-muted)" }}>
-            {dataError
-              ? "HAB alerts unavailable until the database connection is restored."
-              : "No HAB alerts are currently available."}
-          </p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-            {alerts.map((alert) => (
-              <div
-                key={alert.id}
-                style={{
-                  padding: "0.75rem 1rem",
-                  borderLeft: "3px solid var(--risk-high)",
-                  background: "var(--bg-subtle)",
-                  borderRadius: "0 var(--radius-sm) var(--radius-sm) 0",
-                }}
-              >
-                <span style={{ fontWeight: 600, fontSize: "0.875rem", color: "var(--text-primary)" }}>
-                  {alert.alert_level}
-                </span>
-                <span style={{ color: "var(--text-secondary)", marginLeft: "0.75rem", fontSize: "0.875rem" }}>
-                  {alert.message}
-                </span>
-                <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>
-                  {alert.latitude.toFixed(3)}, {alert.longitude.toFixed(3)} &middot;{" "}
-                  {new Date(alert.created_at).toLocaleString()}
-                </div>
-              </div>
-            ))}
+      <section className="ocean-stat-band" aria-label="OceanWatch research tools">
+        <div className="ocean-stat-inner">
+          <div className="ocean-stat"><strong>{observationCount}</strong><span>HAB OBSERVATIONS</span><small>{health?.database === "connected" ? "Recorded source events" : "Connect data to populate"}</small></div>
+          <div className="ocean-stat"><strong>{riskCount}</strong><span>MODEL RISK LOCATIONS</span><small>{health?.database === "connected" ? "Stored predictions" : "When predictions are available"}</small></div>
+          <div className="ocean-stat"><strong>04</strong><span>RISK LEVELS</span><small>Low, moderate, high &amp; critical</small></div>
+          <div className="ocean-stat"><strong>05</strong><span>RISK SCORE COMPONENTS</span><small>Prediction, ocean &amp; historical signals</small></div>
+        </div>
+        <div className="stat-band-art" aria-hidden="true" />
+      </section>
+
+      <section className="ocean-approach" id="approach">
+        <div className="approach-image">
+          <div className="approach-image-frame">
+            <div className="approach-image-caption"><span>HAB MONITORING · 01</span><strong>Look closer at bloom conditions.</strong></div>
           </div>
-        )}
-      </div>
+          <span className="image-stamp"><WaveMark /></span>
+        </div>
+        <div className="approach-copy">
+          <span className="section-eyebrow">HARMFUL ALGAL BLOOM MONITORING</span>
+          <h2>Ocean data for<br /><em>clearer HAB risk.</em></h2>
+          <p>OceanWatch brings recorded HAB observations together with research-model risk estimates and available environmental measurements. Explore the signals behind a score, compare locations, and review historical patterns—all as decision support, not an official advisory.</p>
+          <NavLink className="text-link" to="/history">Explore historical observations <span>⟶</span></NavLink>
+        </div>
+      </section>
+
+      <section className="ocean-signals" id="signals">
+        <div className="signals-heading">
+          <span className="section-eyebrow">HOW OCEANWATCH READS THE WATER</span>
+          <h2>From bloom observations<br />to <em>research risk signals.</em></h2>
+          <p>Explore the core parts of our HAB research and monitoring workflow.</p>
+        </div>
+        <div className="signal-grid">
+          {FEATURES.map((feature) => (
+            <article className="signal-card" key={feature.number}>
+              <span className="signal-number">{feature.number}</span>
+              <span className="signal-wave"><WaveMark /></span>
+              <h3>{feature.title}</h3>
+              <p>{feature.description}</p>
+            </article>
+          ))}
+        </div>
+        <div className="signal-bottom">
+          <div className="signal-bottom-status"><span className={health?.api === "online" ? "hero-live-dot connected" : "hero-live-dot"} />{healthStatus}{updatedAt ? ` · Updated ${updatedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}</div>
+          <NavLink className="hero-button hero-button-gold" to="/events">Browse HAB observations <span>↗</span></NavLink>
+        </div>
+      </section>
+
+      <footer className="landing-footer">
+        <NavLink className="landing-brand" to="/">
+          <span className="landing-brand-mark"><WaveMark /></span>
+          <span className="landing-brand-type"><strong>OCEANWATCH</strong><small>COASTAL INTELLIGENCE</small></span>
+        </NavLink>
+        <span>Research prototype for exploration and decision support—not an official advisory.</span>
+        <a href="#top">BACK TO THE SURFACE ↑</a>
+      </footer>
     </div>
   );
 }

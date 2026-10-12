@@ -75,9 +75,9 @@ export default function History() {
   }
 
   const charts = [
-    { title: "Observed HAB Records",           key: "event_count",         color: "var(--accent)",       unit: "" },
-    { title: "Mean Chlorophyll-a",              key: "average_chlorophyll", color: "var(--risk-low)",     unit: " mg/m³" },
-    { title: "Mean Sea-Surface Temperature",   key: "average_sst",         color: "var(--risk-high)",    unit: " °C" },
+    { title: "Observed HAB Records",          key: "event_count",         color: "#d8ae6d", unit: "" },
+    { title: "Mean Chlorophyll-a",             key: "average_chlorophyll", color: "#77c9a0", unit: " mg/m³" },
+    { title: "Mean Sea-Surface Temperature",  key: "average_sst",         color: "#ed986d", unit: " °C" },
   ];
 
   return (

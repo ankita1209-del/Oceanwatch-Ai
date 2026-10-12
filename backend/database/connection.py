@@ -94,7 +94,36 @@ async def create_tables() -> None:
         if _engine.dialect.name == "postgresql":
             await connection.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
             legacy_statements = (
-                "DO $$ BEGIN IF to_regclass('public.hab_events') IS NOT NULL THEN ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION; ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION; ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS location_name VARCHAR(200); ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS chlorophyll_a DOUBLE PRECISION; ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS sea_surface_temperature DOUBLE PRECISION; ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS sample_water_temperature DOUBLE PRECISION; ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS turbidity DOUBLE PRECISION; ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS wind_speed DOUBLE PRECISION; ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS source_record_id VARCHAR(120); ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS risk_score DOUBLE PRECISION; ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS risk_level VARCHAR(20); ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS confidence DOUBLE PRECISION; ALTER TABLE hab_events ALTER COLUMN event_date TYPE DATE USING event_date::date; ALTER TABLE hab_events ALTER COLUMN location DROP NOT NULL; ALTER TABLE hab_events ALTER COLUMN severity DROP NOT NULL; ALTER TABLE hab_events ALTER COLUMN risk_score DROP NOT NULL; ALTER TABLE hab_events ALTER COLUMN lat DROP NOT NULL; ALTER TABLE hab_events ALTER COLUMN lon DROP NOT NULL; END IF; END $$",
+                """DO $$ BEGIN
+                    IF to_regclass('public.hab_events') IS NOT NULL THEN
+                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
+                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
+                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS location_name VARCHAR(200);
+                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS chlorophyll_a DOUBLE PRECISION;
+                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS sea_surface_temperature DOUBLE PRECISION;
+                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS sample_water_temperature DOUBLE PRECISION;
+                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS turbidity DOUBLE PRECISION;
+                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS wind_speed DOUBLE PRECISION;
+                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS source_record_id VARCHAR(120);
+                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS risk_score DOUBLE PRECISION;
+                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS risk_level VARCHAR(20);
+                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS confidence DOUBLE PRECISION;
+                        ALTER TABLE hab_events ALTER COLUMN event_date TYPE DATE USING event_date::date;
+                        ALTER TABLE hab_events ALTER COLUMN location DROP NOT NULL;
+                        ALTER TABLE hab_events ALTER COLUMN severity DROP NOT NULL;
+                        ALTER TABLE hab_events ALTER COLUMN risk_score DROP NOT NULL;
+                        IF EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_schema = 'public' AND table_name = 'hab_events'
+                                     AND column_name = 'lat') THEN
+                            ALTER TABLE hab_events ALTER COLUMN lat DROP NOT NULL;
+                        END IF;
+                        IF EXISTS (SELECT 1 FROM information_schema.columns
+                                   WHERE table_schema = 'public' AND table_name = 'hab_events'
+                                     AND column_name = 'lon') THEN
+                            ALTER TABLE hab_events ALTER COLUMN lon DROP NOT NULL;
+                        END IF;
+                    END IF;
+                END $$""",
                 "DO $$ BEGIN IF to_regclass('public.alerts') IS NOT NULL THEN ALTER TABLE alerts ADD COLUMN IF NOT EXISTS prediction_id INTEGER; ALTER TABLE alerts ADD COLUMN IF NOT EXISTS alert_level VARCHAR(20); ALTER TABLE alerts ADD COLUMN IF NOT EXISTS message TEXT; ALTER TABLE alerts ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION; ALTER TABLE alerts ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION; ALTER TABLE alerts ADD COLUMN IF NOT EXISTS hab_probability DOUBLE PRECISION; ALTER TABLE alerts ADD COLUMN IF NOT EXISTS acknowledged BOOLEAN NOT NULL DEFAULT FALSE; ALTER TABLE alerts ALTER COLUMN alert_id DROP NOT NULL; ALTER TABLE alerts ALTER COLUMN risk_level DROP NOT NULL; END IF; END $$",
             )
             for statement in legacy_statements:

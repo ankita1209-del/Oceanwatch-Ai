@@ -9,6 +9,8 @@ const RISK_COLORS = {
   LOW:      "#16a34a",
 };
 
+const OBSERVATION_COLOR = "#8dd9d5";
+
 export default function MapView() {
   const [geoData, setGeoData] = useState(null);
   const [events, setEvents] = useState([]);
@@ -59,7 +61,7 @@ export default function MapView() {
         {/* Legend */}
         <div className="legend-row" style={{ marginBottom: 0, marginTop: "0.25rem" }}>
           <div className="legend-item">
-            <span className="legend-dot" style={{ background: "#1b6ca8" }} />
+            <span className="legend-dot" style={{ background: OBSERVATION_COLOR }} />
             Historical Observation
           </div>
           {Object.entries(RISK_COLORS).map(([level, color]) => (
@@ -110,7 +112,7 @@ export default function MapView() {
                 key={`obs-${event.id}`}
                 center={[event.lat, event.lon]}
                 radius={7}
-                pathOptions={{ color: "#1b6ca8", fillColor: "#1b6ca8", fillOpacity: 0.8, weight: 2 }}
+                pathOptions={{ color: OBSERVATION_COLOR, fillColor: OBSERVATION_COLOR, fillOpacity: 0.8, weight: 2 }}
               >
                 <Popup>
                   <div style={{ minWidth: 180 }}>
@@ -130,7 +132,7 @@ export default function MapView() {
             {geoData?.features?.map((feature, idx) => {
               const [lon, lat] = feature.geometry.coordinates;
               const props = feature.properties;
-              const color = RISK_COLORS[props.risk_level] || "#1b6ca8";
+              const color = RISK_COLORS[props.risk_level] || OBSERVATION_COLOR;
               return (
                 <CircleMarker
                   key={idx}
