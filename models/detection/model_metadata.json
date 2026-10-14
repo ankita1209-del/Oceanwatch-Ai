@@ -1,0 +1,130 @@
+{
+  "model_name": "ResNet-18 HAB Image Detector",
+  "version": "2026-10-08",
+  "architecture": "ResNet-18 (pretrained backbone, frozen) + Dropout + Linear(512\u21922)",
+  "training_images": 67,
+  "test_images": 17,
+  "image_dir": "data\\images",
+  "label_method": "CIcyano auto-labeling (p75 threshold)",
+  "epochs": 20,
+  "metrics": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "accuracy": 1.0,
+    "roc_auc": 1.0,
+    "confusion_matrix": [
+      [
+        2,
+        0
+      ],
+      [
+        0,
+        15
+      ]
+    ],
+    "test_images": 17
+  },
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 0.5847,
+      "val_f1": 0.9375
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.3789,
+      "val_f1": 0.9375
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.3564,
+      "val_f1": 0.9375
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.3056,
+      "val_f1": 0.9375
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.2828,
+      "val_f1": 0.9375
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.2751,
+      "val_f1": 0.9375
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.2126,
+      "val_f1": 0.9375
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.2199,
+      "val_f1": 0.9375
+    },
+    {
+      "epoch": 9,
+      "train_loss": 0.1986,
+      "val_f1": 0.9375
+    },
+    {
+      "epoch": 10,
+      "train_loss": 0.1953,
+      "val_f1": 0.9375
+    },
+    {
+      "epoch": 11,
+      "train_loss": 0.2529,
+      "val_f1": 0.9375
+    },
+    {
+      "epoch": 12,
+      "train_loss": 0.176,
+      "val_f1": 0.9375
+    },
+    {
+      "epoch": 13,
+      "train_loss": 0.1658,
+      "val_f1": 0.9677
+    },
+    {
+      "epoch": 14,
+      "train_loss": 0.193,
+      "val_f1": 1.0
+    },
+    {
+      "epoch": 15,
+      "train_loss": 0.2356,
+      "val_f1": 0.9375
+    },
+    {
+      "epoch": 16,
+      "train_loss": 0.1189,
+      "val_f1": 0.9375
+    },
+    {
+      "epoch": 17,
+      "train_loss": 0.1328,
+      "val_f1": 1.0
+    },
+    {
+      "epoch": 18,
+      "train_loss": 0.1577,
+      "val_f1": 1.0
+    },
+    {
+      "epoch": 19,
+      "train_loss": 0.1537,
+      "val_f1": 0.9375
+    },
+    {
+      "epoch": 20,
+      "train_loss": 0.1618,
+      "val_f1": 1.0
+    }
+  ]
+}

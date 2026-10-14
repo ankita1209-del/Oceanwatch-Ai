@@ -7,11 +7,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+    env_file="backend/.env",
+    env_file_encoding="utf-8",
+    extra="ignore",
+)
 
     APP_NAME: str = "OceanWatch AI"
     ENVIRONMENT: str = "development"
-    DATABASE_URL: str = "sqlite+aiosqlite:///oceanwatch.db"
+    DATABASE_URL: str = "postgresql+asyncpg://oceanwatch:mypass@127.0.0.1:5432/oceanwatch"
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001"
     PREDICTION_MODEL_PATH: str = "models/prediction/xgboost_model.pkl"
     DETECTION_MODEL_PATH: str = "models/detection/hab_image_model.joblib"

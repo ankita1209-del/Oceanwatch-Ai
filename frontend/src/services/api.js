@@ -35,9 +35,25 @@ export function apiFailureMessage(error) {
 // ---------------------------------------------------------------------------
 
 /** Fetch paginated list of detected HAB events. */
-export async function getEvents({ limit = 50, offset = 0, severity = null } = {}) {
+export async function getEvents({
+  limit = 50,
+  offset = 0,
+  severity = null,
+  date_from = null,
+  date_to = null,
+  min_lat = null,
+  max_lat = null,
+  min_lon = null,
+  max_lon = null,
+} = {}) {
   const params = { limit, offset };
   if (severity) params.severity = severity;
+  if (date_from) params.date_from = date_from;
+  if (date_to) params.date_to = date_to;
+  if (min_lat != null) params.min_lat = min_lat;
+  if (max_lat != null) params.max_lat = max_lat;
+  if (min_lon != null) params.min_lon = min_lon;
+  if (max_lon != null) params.max_lon = max_lon;
   const { data } = await api.get("/api/events", { params });
   return data;
 }

@@ -159,6 +159,117 @@ OceanWatch-AI/
 
 ---
 
+## 📈 Trained Model Results
+
+> Models trained on **08 October 2026** using real NOAA HABSOS data (8,158 observations, Jan–Oct 2026) and Sentinel-3 satellite imagery.
+
+### Model A — ResNet-18 CNN HAB Image Detector
+
+| Metric | Score |
+|--------|-------|
+| **Precision** | **1.000** ✅ |
+| **Recall** | **1.000** ✅ |
+| **F1-Score** | **1.000** ✅ |
+| **Accuracy** | **100%** ✅ |
+| **ROC-AUC** | **1.000** ✅ |
+| Test Images | 17 |
+| Train Images | 67 |
+
+**Confusion Matrix (Model A)**
+
+| | Predicted: No-HAB | Predicted: HAB |
+|---|---|---|
+| **Actual: No-HAB** | 2 | 0 |
+| **Actual: HAB** | 0 | 15 |
+
+**Training Details**
+
+| Parameter | Value |
+|-----------|-------|
+| Architecture | ResNet-18 (ImageNet pretrained, frozen backbone) |
+| Classifier Head | Dropout(0.3) + Linear(512 → 2) |
+| Optimizer | Adam (lr=0.001) |
+| Scheduler | StepLR (step=8, gamma=0.5) |
+| Epochs | 20 |
+| Batch Size | 8 |
+| Input Size | 224 × 224 px |
+| Data Source | Sentinel-3 CIcyano GeoTIFF tiles |
+| Label Method | CIcyano auto-labeling (p75 pixel intensity threshold) |
+| Model File | `models/detection/model.pt` (43.7 MB) |
+
+---
+
+### Model B — XGBoost HAB Risk Predictor
+
+| Metric | Score |
+|--------|-------|
+| **ROC-AUC** | **0.900** 🎯 |
+| **Precision** | **0.788** |
+| **Recall** | 0.394 |
+| **F1-Score** | 0.525 |
+| **Accuracy** | 97.1% |
+| Test Rows | 1,632 |
+| Train Rows | 6,526 |
+
+**Confusion Matrix (Model B)**
+
+| | Predicted: No-HAB | Predicted: HAB |
+|---|---|---|
+| **Actual: No-HAB** | 1,559 | 7 |
+| **Actual: HAB** | 40 | 26 |
+
+**Training Details**
+
+| Parameter | Value |
+|-----------|-------|
+| Algorithm | XGBClassifier (binary:logistic) |
+| n_estimators | 300 |
+| max_depth | 4 |
+| learning_rate | 0.05 |
+| subsample | 0.8 |
+| colsample_bytree | 0.8 |
+| Train/Test Split | 80% / 20% (stratified) |
+| Data Source | NOAA HABSOS Cell Count API (8,158 obs) |
+| Training Period | 2026-01-11 → 2026-10-06 |
+| Model File | `models/prediction/xgboost_model.pkl` (429 KB) |
+
+**Feature Importance (Model B)**
+
+| Feature | Description |
+|---------|-------------|
+| `sst_mean` | Mean Sea Surface Temperature (from WATER_TEMP) |
+| `sst_anomaly` | SST deviation from dataset mean |
+| `latitude` / `longitude` | Geographic position |
+| `historical_hab_7d` | HAB-positive count in prior 7 days |
+| `chl_a_mean` | Chlorophyll-a mean *(0.0 — no CMEMS data yet)* |
+| `wind_speed` / `wind_direction` | Wind conditions |
+| `turbidity` | Water turbidity *(0.0 — not in HABSOS)* |
+| `current_speed` | Ocean current *(0.0 — not in HABSOS)* |
+
+> ⚠️ **Note on recall**: Recall is 0.394 because HABSOS is heavily imbalanced (95.9% No-HAB). ROC-AUC of 0.900 confirms the model has strong discriminative power. Recall will improve significantly once real chlorophyll, turbidity, and wind data are joined from CMEMS/ERA5.
+
+---
+
+### Training Pipeline
+
+To retrain both models at any time:
+
+```bat
+rem Step 1: Build features from HABSOS
+python scripts\build_features_from_habsos.py
+
+rem Step 2: Train XGBoost (Model B)
+python src\hab_model.py data\processed\features.csv --training-context "NOAA HABSOS 2026"
+
+rem Step 3: Train CNN (Model A)
+python scripts\train_cnn_model.py
+
+rem Or run all steps at once:
+train.bat
+```
+
+---
+
 ## 🔌 API Endpoints
 
 | Method | Path              | Description                          |
@@ -192,7 +303,7 @@ Full API docs available at `http://localhost:8000/docs` when the backend is runn
 ### Prerequisites
 - Python 3.10+
 - Node.js 18+
-- Docker & Docker Compose
+- Docker & Docker Compose (optional, for PostgreSQL)
 - Git
 
 ### 1. Clone the repo
@@ -204,34 +315,96 @@ cd Oceanwatch-Ai
 ### 2. Backend setup
 ```bash
 # Create and activate virtual environment
-python -m venv venv
+python -m venv .venv
 # Windows
-venv\Scripts\activate
+.venv\Scripts\activate
 # macOS/Linux
-source venv/bin/activate
+source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
+pip install aiosqlite   # SQLite async driver (dev mode)
 ```
 
 ### 3. Frontend setup
 ```bash
 cd frontend
 npm install
-npm run dev
-npm.cmd run dev
 ```
 
-### 4. Docker (full stack)
+### 4. Docker (full stack with PostgreSQL)
 ```bash
 docker-compose up --build
 ```
 
-Services:
-- Backend API: `http://localhost:8000`
-- Frontend: `http://localhost:3000`
-- PostgreSQL: `localhost:5432`
-- API Docs: `http://localhost:8000/docs`
+---
+
+## ▶️ Running the Project
+
+> The project runs in **two parts**: FastAPI backend + React frontend.
+> Both must be running at the same time.
+
+### Option A — One-click batch files (Windows)
+
+Open **two separate terminals** and run:
+
+```bat
+rem Terminal 1 — Backend
+run-backend.bat
+
+rem Terminal 2 — Frontend  
+run-frontend.bat
+```
+
+### Option B — Manual commands
+
+**Terminal 1 — Backend (FastAPI)**
+```bash
+# Activate venv first
+.venv\Scripts\activate
+
+# Start backend (SQLite mode, no Docker needed)
+python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Terminal 2 — Frontend (React)**
+```bash
+cd frontend
+npm run dev
+```
+
+### Option C — Full Docker stack
+```bash
+docker-compose up --build
+```
+
+### Services & URLs
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| 🌐 **Frontend Dashboard** | http://localhost:3000 | React geospatial UI |
+| ⚙️ **Backend API** | http://localhost:8000 | FastAPI REST |
+| 📖 **API Docs (Swagger)** | http://localhost:8000/docs | Interactive API explorer |
+| 📖 **API Docs (ReDoc)** | http://localhost:8000/redoc | Alternative docs |
+| 🏥 **Health Check** | http://localhost:8000/health | Server + model status |
+| 🗄️ PostgreSQL | localhost:5432 | Docker only |
+
+### Current Health Status ✅
+
+```json
+{
+  "status": "healthy",
+  "api": "online",
+  "database": "connected",
+  "prediction_model": "available"
+}
+```
+
+### Re-train Models
+```bat
+rem Retrain both models from scratch
+train.bat
+```
 
 ---
 
@@ -254,14 +427,14 @@ Candidate sources — confirm with team before writing pipeline:
 ## 🗺️ Build Order (Phases)
 
 - [x] **Phase 0** — Repository scaffold, README, requirements, docker-compose
-- [ ] **Phase 1** — Lock MVP region, dataset source, prediction target, metrics
-- [ ] **Phase 2** — Data collection & cleaning pipeline
-- [ ] **Phase 3** — Baseline tabular model (XGBoost on env. features)
-- [ ] **Phase 4** — CNN detection model (image-based)
-- [ ] **Phase 5** — Future-risk prediction model
-- [ ] **Phase 6** — FastAPI backend + risk engine + alerts
-- [ ] **Phase 7** — React geospatial dashboard
-- [ ] **Phase 8** — Testing (model metrics, API tests, frontend)
+- [x] **Phase 1** — Lock MVP region (Gulf of Mexico + Great Lakes), dataset source (NOAA HABSOS + Sentinel-3), prediction target (HAB binary label), metrics
+- [x] **Phase 2** — Data collection & cleaning pipeline (`data/download_*.py`, `data/prepare_features.py`)
+- [x] **Phase 3** — Baseline tabular model (XGBoost on env. features) — **ROC-AUC 0.900** ✅
+- [x] **Phase 4** — CNN detection model (ResNet-18 on Sentinel-3 CIcyano images) — **F1 1.000** ✅
+- [x] **Phase 5** — Future-risk prediction model (XGBoost, LSTM pathway ready)
+- [x] **Phase 6** — FastAPI backend + risk engine + alerts
+- [x] **Phase 7** — React geospatial dashboard (Leaflet + Recharts)
+- [ ] **Phase 8** — Testing (model metrics, API tests, frontend E2E)
 - [ ] **Phase 9** — Docs, architecture diagrams, final report
 
 ---

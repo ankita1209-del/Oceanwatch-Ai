@@ -1,7 +1,6 @@
 /**
  * OceanWatch AI — App Entry Point
  */
-
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, NavLink, useLocation } from "react-router-dom";
 import "./App.css";
@@ -16,6 +15,7 @@ function AppShell() {
   const isLanding = pathname === "/";
 
   return (
+<<<<<<< HEAD
       <div className={`app${isLanding ? " app-landing" : ""}`}>
         {!isLanding && <aside className="ocean-sidebar">
           <NavLink to="/" end className="ocean-brand">
@@ -61,14 +61,34 @@ function AppShell() {
             </div>
           </div>
         </aside>}
+=======
+    <Router>
+      <div className="app">
+        <nav className="navbar">
+          <div className="navbar-brand">
+            <div className="brand-logo">🌊</div>
+            <span className="brand-name">Ocean<span>Watch</span> AI</span>
+          </div>
+
+          <ul className="nav-links">
+            <li><NavLink to="/"        end>Dashboard</NavLink></li>
+            <li><NavLink to="/map"        >Risk Map</NavLink></li>
+            <li><NavLink to="/events"     >Events</NavLink></li>
+            <li><NavLink to="/history"    >History</NavLink></li>
+          </ul>
+
+          <div className="nav-badge">⚠ Research Prototype</div>
+        </nav>
+
+>>>>>>> f733b71 (Complete OceanWatch project updates)
         <main className="main-content">
-          <React.Suspense fallback={<div className="loading">Loading…</div>}>
+          <React.Suspense fallback={<div className="loading">🌊 Loading OceanWatch AI…</div>}>
             <Routes>
-              <Route path="/"        element={<Dashboard />} />
-              <Route path="/map"     element={<MapView />} />
+              <Route path="/"         element={<Dashboard />} />
+              <Route path="/map"      element={<MapView />} />
               <Route path="/risk-map" element={<MapView />} />
-              <Route path="/events"  element={<Events />} />
-              <Route path="/history" element={<History />} />
+              <Route path="/events"   element={<Events />} />
+              <Route path="/history"  element={<History />} />
             </Routes>
           </React.Suspense>
         </main>

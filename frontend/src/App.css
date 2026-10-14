@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /* OceanWatch AI — shared ocean palette */
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap');
 
@@ -36,57 +37,163 @@
   --shadow-sm: 0 8px 18px rgba(0, 10, 16, 0.2);
   --shadow: 0 14px 26px rgba(0, 10, 16, 0.26);
   --shadow-lg: 0 18px 34px rgba(0, 10, 16, 0.32);
+=======
+/* ============================================================
+   OceanWatch AI — Premium Dark Ocean Theme
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Ocean palette */
+  --ocean-deep:    #020b18;
+  --ocean-dark:    #050f1e;
+  --ocean-mid:     #071628;
+  --ocean-surface: #0a1e38;
+  --ocean-glass:   rgba(10,30,56,0.6);
+  --ocean-glow:    rgba(0,200,255,0.08);
+
+  /* Accent */
+  --cyan:          #00d4ff;
+  --cyan-dim:      rgba(0,212,255,0.15);
+  --cyan-glow:     rgba(0,212,255,0.35);
+  --teal:          #00b8c8;
+  --blue:          #1a6fc4;
+  --blue-bright:   #3b9eff;
+
+  /* Risk colors */
+  --risk-low:      #22c55e;
+  --risk-moderate: #f59e0b;
+  --risk-high:     #f97316;
+  --risk-critical: #ef4444;
+  --risk-low-bg:       rgba(34,197,94,0.12);
+  --risk-moderate-bg:  rgba(245,158,11,0.12);
+  --risk-high-bg:      rgba(249,115,22,0.12);
+  --risk-critical-bg:  rgba(239,68,68,0.12);
+  --risk-low-border:       rgba(34,197,94,0.4);
+  --risk-moderate-border:  rgba(245,158,11,0.4);
+  --risk-high-border:      rgba(249,115,22,0.4);
+  --risk-critical-border:  rgba(239,68,68,0.4);
+
+  /* Text */
+  --text-primary:   #e8f4ff;
+  --text-secondary: #8badc8;
+  --text-muted:     #4a6880;
+
+  /* Borders & surfaces */
+  --border:        rgba(0,212,255,0.12);
+  --border-strong: rgba(0,212,255,0.25);
+  --glass:         rgba(5,15,30,0.7);
+  --glass-light:   rgba(10,30,56,0.5);
+
+  --radius-sm: 8px;
+  --radius:    12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+
+  --shadow-sm:  0 2px 8px rgba(0,0,0,0.4);
+  --shadow:     0 4px 20px rgba(0,0,0,0.5);
+  --shadow-lg:  0 8px 40px rgba(0,0,0,0.6);
+  --glow-cyan:  0 0 20px rgba(0,212,255,0.2);
+  --glow-blue:  0 0 30px rgba(26,111,196,0.3);
+>>>>>>> f733b71 (Complete OceanWatch project updates)
 }
 
+/* ── Reset ──────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { scroll-behavior: smooth; }
 
 body {
+<<<<<<< HEAD
   font-family: 'DM Sans', 'Inter', 'Segoe UI', system-ui, sans-serif;
   background:
     radial-gradient(circle at top left, rgba(28, 112, 133, 0.16), transparent 28%),
     radial-gradient(circle at bottom right, rgba(26, 103, 91, 0.12), transparent 24%),
     linear-gradient(180deg, var(--bg-page) 0%, var(--bg-page-strong) 100%);
+=======
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--ocean-deep);
+>>>>>>> f733b71 (Complete OceanWatch project updates)
   color: var(--text-primary);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
-  line-height: 1.5;
+  line-height: 1.6;
+  overflow-x: hidden;
 }
 
-.app { display: flex; flex-direction: column; min-height: 100vh; }
+/* Animated ocean background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 10%, rgba(0,180,255,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(26,111,196,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 30% at 50% 50%, rgba(0,100,180,0.04) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
 
 /* ── Navbar ─────────────────────────────────────────────────── */
 .navbar {
   display: flex;
   align-items: center;
   padding: 0 2rem;
+<<<<<<< HEAD
   height: 68px;
   background: rgba(255, 255, 255, 0.78);
   backdrop-filter: blur(14px);
   border-bottom: 1px solid rgba(180, 203, 228, 0.9);
   box-shadow: 0 6px 18px rgba(17, 45, 80, 0.06);
+=======
+  height: 64px;
+  background: rgba(2,11,24,0.9);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 1px 0 var(--border), var(--shadow-sm);
+>>>>>>> f733b71 (Complete OceanWatch project updates)
   gap: 2.5rem;
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 200;
 }
 
 .navbar-brand {
   display: flex;
   align-items: center;
+<<<<<<< HEAD
   gap: 0.6rem;
+=======
+  gap: 0.65rem;
+>>>>>>> f733b71 (Complete OceanWatch project updates)
   text-decoration: none;
+  flex-shrink: 0;
 }
 
 .brand-logo {
+<<<<<<< HEAD
   width: 30px;
   height: 30px;
   background: linear-gradient(135deg, var(--accent), #58a4ff);
+=======
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--blue), var(--cyan));
+>>>>>>> f733b71 (Complete OceanWatch project updates)
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+<<<<<<< HEAD
   box-shadow: 0 8px 18px rgba(19, 118, 209, 0.24);
 }
 
@@ -97,12 +204,30 @@ body {
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.03em;
+=======
+  box-shadow: 0 0 14px rgba(0,212,255,0.3);
+  font-size: 1.1rem;
 }
+
+.brand-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+>>>>>>> f733b71 (Complete OceanWatch project updates)
+}
+
+.brand-name span { color: var(--cyan); }
 
 .nav-links {
   display: flex;
   list-style: none;
+<<<<<<< HEAD
   gap: 0.35rem;
+=======
+  gap: 0.15rem;
+>>>>>>> f733b71 (Complete OceanWatch project updates)
   flex: 1;
 }
 
@@ -110,6 +235,7 @@ body {
   text-decoration: none;
   color: var(--text-secondary);
   font-size: 0.875rem;
+<<<<<<< HEAD
   font-weight: 600;
   padding: 0.5rem 0.8rem;
   border-radius: 10px;
@@ -137,13 +263,44 @@ body {
   padding: 0.38rem 0.8rem;
   white-space: nowrap;
   box-shadow: 0 4px 10px rgba(186, 109, 29, 0.08);
+=======
+  font-weight: 500;
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  letter-spacing: 0.01em;
 }
 
-/* ── Main Content ───────────────────────────────────────────── */
+.nav-links a:hover {
+  background: var(--cyan-dim);
+  color: var(--cyan);
+}
+
+.nav-links a.active {
+  background: var(--cyan-dim);
+  color: var(--cyan);
+  box-shadow: inset 0 0 0 1px rgba(0,212,255,0.2);
+}
+
+.nav-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: rgba(245,158,11,0.1);
+  color: #f59e0b;
+  border: 1px solid rgba(245,158,11,0.25);
+  border-radius: 20px;
+  padding: 0.3rem 0.8rem;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+>>>>>>> f733b71 (Complete OceanWatch project updates)
+}
+
+/* ── Main ──────────────────────────────────────────────────── */
 .main-content { flex: 1; }
 
 .loading {
-  padding: 4rem;
+  padding: 6rem;
   text-align: center;
   color: var(--text-muted);
   font-size: 0.9rem;
@@ -151,11 +308,12 @@ body {
 
 /* ── Page wrapper ───────────────────────────────────────────── */
 .page-wrapper {
-  max-width: 1360px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 2rem 2rem 3rem;
+  padding: 2rem 2rem 4rem;
 }
 
+<<<<<<< HEAD
 /* ── Page header ────────────────────────────────────────────── */
 .page-header {
   margin-bottom: 2rem;
@@ -176,42 +334,135 @@ body {
   color: var(--text-secondary);
   margin-top: 0.45rem;
   max-width: 880px;
+=======
+/* ── Page header ─────────────────────────────────────────────── */
+.page-header { margin-bottom: 2rem; }
+
+.page-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, var(--text-primary) 60%, var(--cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-/* ── Cards ──────────────────────────────────────────────────── */
+.page-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-top: 0.35rem;
+>>>>>>> f733b71 (Complete OceanWatch project updates)
+}
+
+/* ── Status bar ─────────────────────────────────────────────── */
+.status-bar {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.7rem;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--glass-light);
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.status-pill.ok    { color: var(--risk-low);      border-color: var(--risk-low-border);      background: var(--risk-low-bg); }
+.status-pill.warn  { color: var(--risk-moderate);  border-color: var(--risk-moderate-border);  background: var(--risk-moderate-bg); }
+.status-pill.err   { color: var(--risk-critical);  border-color: var(--risk-critical-border);  background: var(--risk-critical-bg); }
+
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ── Glass Cards ─────────────────────────────────────────────── */
 .card {
+<<<<<<< HEAD
   background: linear-gradient(145deg, rgba(14, 48, 59, 0.98), rgba(7, 32, 43, 0.98));
+=======
+  background: var(--glass);
+>>>>>>> f733b71 (Complete OceanWatch project updates)
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-lg), var(--glow-cyan);
 }
 
 .card-title {
+<<<<<<< HEAD
   font-size: 1rem;
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 1rem;
   padding-bottom: 0.7rem;
   border-bottom: 1px solid var(--border);
+=======
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1.1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+>>>>>>> f733b71 (Complete OceanWatch project updates)
   letter-spacing: -0.01em;
 }
+
+.card-title .card-icon { font-size: 1rem; }
 
 /* ── Stat Cards ─────────────────────────────────────────────── */
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
 }
 
 .stat-card {
+<<<<<<< HEAD
   position: relative;
   background: linear-gradient(145deg, rgba(14, 48, 59, 0.98), rgba(7, 32, 43, 0.98));
+=======
+  background: var(--glass);
+>>>>>>> f733b71 (Complete OceanWatch project updates)
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 1.25rem 1.5rem;
+  padding: 1.4rem 1.5rem;
   box-shadow: var(--shadow-sm);
+<<<<<<< HEAD
   border-top: 4px solid var(--accent);
   overflow: hidden;
 }
@@ -224,14 +475,32 @@ body {
   height: 100%;
   background: linear-gradient(135deg, rgba(216, 174, 109, 0.08), transparent 42%);
   pointer-events: none;
+=======
+  backdrop-filter: blur(12px);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+>>>>>>> f733b71 (Complete OceanWatch project updates)
 }
 
-.stat-card.critical { border-top-color: var(--risk-critical); }
-.stat-card.high     { border-top-color: var(--risk-high); }
-.stat-card.moderate { border-top-color: var(--risk-moderate); }
-.stat-card.accent   { border-top-color: var(--accent); }
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--card-accent, var(--cyan)), transparent);
+  opacity: 0.7;
+}
+
+.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow), var(--glow-cyan); }
+
+.stat-card.critical { --card-accent: var(--risk-critical); }
+.stat-card.high     { --card-accent: var(--risk-high); }
+.stat-card.moderate { --card-accent: var(--risk-moderate); }
+.stat-card.accent   { --card-accent: var(--cyan); }
 
 .stat-value {
+<<<<<<< HEAD
   position: relative;
   z-index: 1;
   font-size: 2rem;
@@ -265,38 +534,88 @@ body {
 .badge-high     { background: var(--risk-high-bg);     color: var(--risk-high);     border: 1px solid rgba(237, 152, 109, 0.38); }
 .badge-moderate { background: var(--risk-moderate-bg); color: var(--risk-moderate); border: 1px solid rgba(226, 189, 112, 0.38); }
 .badge-low      { background: var(--risk-low-bg);      color: var(--risk-low);      border: 1px solid rgba(119, 201, 160, 0.38); }
+=======
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+  margin-bottom: 0.45rem;
+  letter-spacing: -0.03em;
+}
 
-/* ── Alert / Error Banner ───────────────────────────────────── */
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+>>>>>>> f733b71 (Complete OceanWatch project updates)
+
+/* ── Badges ─────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.badge-critical { background: var(--risk-critical-bg); color: var(--risk-critical); border: 1px solid var(--risk-critical-border); }
+.badge-high     { background: var(--risk-high-bg);     color: var(--risk-high);     border: 1px solid var(--risk-high-border); }
+.badge-moderate { background: var(--risk-moderate-bg); color: var(--risk-moderate); border: 1px solid var(--risk-moderate-border); }
+.badge-low      { background: var(--risk-low-bg);      color: var(--risk-low);      border: 1px solid var(--risk-low-border); }
+
+/* ── Banners ─────────────────────────────────────────────────── */
 .error-banner {
+<<<<<<< HEAD
   padding: 0.8rem 1rem;
   background: linear-gradient(180deg, rgba(111, 43, 52, 0.32), rgba(65, 31, 39, 0.48));
   border: 1px solid rgba(239, 125, 130, 0.34);
   border-radius: var(--radius);
   color: #f39b9c;
+=======
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1.1rem;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.25);
+  border-radius: var(--radius);
+  color: #fca5a5;
+>>>>>>> f733b71 (Complete OceanWatch project updates)
   font-size: 0.875rem;
   margin-bottom: 1.5rem;
   box-shadow: 0 8px 18px rgba(0, 10, 16, 0.12);
 }
 
 .info-banner {
+<<<<<<< HEAD
   padding: 0.75rem 1rem;
   background: linear-gradient(180deg, rgba(104, 80, 43, 0.35), rgba(57, 49, 35, 0.5));
   border: 1px solid rgba(216, 174, 109, 0.36);
   border-radius: var(--radius);
   color: #e5c58c;
+=======
+  padding: 0.85rem 1.1rem;
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.25);
+  border-radius: var(--radius);
+  color: #fcd34d;
+>>>>>>> f733b71 (Complete OceanWatch project updates)
   font-size: 0.875rem;
   margin-bottom: 1rem;
 }
 
-/* ── Table ──────────────────────────────────────────────────── */
-.table-wrapper {
-  background: var(--bg-white);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-}
+/* ── Forms ──────────────────────────────────────────────────── */
+.form-group { display: flex; flex-direction: column; gap: 0.4rem; }
 
+<<<<<<< HEAD
 table { width: 100%; border-collapse: collapse; text-align: left; }
 thead tr { background: var(--bg-subtle); }
 th {
@@ -326,12 +645,21 @@ label {
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+=======
+label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+>>>>>>> f733b71 (Complete OceanWatch project updates)
 }
 
 input[type="number"],
 input[type="date"],
 input[type="text"],
 select {
+<<<<<<< HEAD
   padding: 0.7rem 0.8rem;
   border: 1px solid var(--border-strong);
   border-radius: 10px;
@@ -340,19 +668,38 @@ select {
   background: #092733;
   font-family: inherit;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+=======
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  background: rgba(5,15,30,0.6);
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+>>>>>>> f733b71 (Complete OceanWatch project updates)
   width: 100%;
   color-scheme: dark;
 }
 
 input:focus, select:focus {
   outline: none;
+<<<<<<< HEAD
   border-color: var(--accent);
   box-shadow: 0 0 0 4px rgba(216, 174, 109, 0.15);
   transform: translateY(-1px);
+=======
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(0,212,255,0.1);
+  background: rgba(5,15,30,0.8);
+>>>>>>> f733b71 (Complete OceanWatch project updates)
 }
 
-/* ── Buttons ────────────────────────────────────────────────── */
+input::placeholder { color: var(--text-muted); }
+
+/* ── Buttons ─────────────────────────────────────────────────── */
 .btn {
+<<<<<<< HEAD
   padding: 0.72rem 1.3rem;
   border-radius: 10px;
   font-size: 0.9rem;
@@ -377,19 +724,173 @@ input:focus, select:focus {
 }
 
 .btn-primary:hover:not(:disabled) { background: linear-gradient(135deg, var(--accent-hover) 0%, #d8ae6d 100%); }
+=======
+  padding: 0.7rem 1.4rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: 'Space Grotesk', inherit;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+  letter-spacing: 0.02em;
+}
+
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--blue), var(--cyan));
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(0,212,255,0.2);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0,212,255,0.35);
+}
+
+.btn-primary:active:not(:disabled) { transform: translateY(0); }
+>>>>>>> f733b71 (Complete OceanWatch project updates)
 
 .btn-full { width: 100%; }
 
-/* ── Map container ──────────────────────────────────────────── */
+/* ── Loading spinner ─────────────────────────────────────────── */
+.spinner {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Map ─────────────────────────────────────────────────────── */
 .map-wrapper {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
+<<<<<<< HEAD
   box-shadow: var(--shadow);
   background: #082733;
+=======
+  box-shadow: var(--shadow-lg);
+>>>>>>> f733b71 (Complete OceanWatch project updates)
 }
 
-/* ── Legend row ─────────────────────────────────────────────── */
+/* ── Prediction result box ───────────────────────────────────── */
+.result-box {
+  margin-top: 1.25rem;
+  padding: 1.2rem;
+  background: linear-gradient(135deg, rgba(0,212,255,0.05), rgba(26,111,196,0.08));
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.result-level {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  color: var(--text-secondary);
+}
+
+.result-row:last-child { border-bottom: none; }
+.result-row strong { color: var(--text-primary); font-weight: 600; }
+
+/* Risk score bar */
+.risk-bar-wrap {
+  width: 100%;
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 0.75rem;
+}
+
+.risk-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.8s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+/* ── Event cards ─────────────────────────────────────────────── */
+.event-card {
+  padding: 1rem;
+  background: rgba(5,15,30,0.5);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.event-card:hover {
+  border-color: var(--border-strong);
+  background: rgba(5,15,30,0.8);
+}
+
+/* ── Table ──────────────────────────────────────────────────── */
+.table-wrapper {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+}
+
+table { width: 100%; border-collapse: collapse; text-align: left; }
+
+thead tr {
+  background: rgba(0,212,255,0.04);
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  padding: 0.85rem 1rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+td {
+  padding: 0.9rem 1rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: rgba(0,212,255,0.03); }
+
+/* ── Legend ──────────────────────────────────────────────────── */
 .legend-row {
   display: flex;
   gap: 1rem;
@@ -397,6 +898,7 @@ input:focus, select:focus {
   align-items: center;
   margin-bottom: 1rem;
 }
+
 .legend-item {
   display: flex;
   align-items: center;
@@ -404,13 +906,15 @@ input:focus, select:focus {
   font-size: 0.8rem;
   color: var(--text-secondary);
 }
+
 .legend-dot {
-  width: 10px;
-  height: 10px;
+  width: 10px; height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
 }
 
+<<<<<<< HEAD
 /* ── Prediction result box ──────────────────────────────────── */
 .result-box {
   margin-top: 1.25rem;
@@ -428,19 +932,34 @@ input:focus, select:focus {
   padding: 0.38rem 0;
   border-bottom: 1px solid #254651;
   color: var(--text-secondary);
+=======
+/* ── Empty state ─────────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+>>>>>>> f733b71 (Complete OceanWatch project updates)
 }
-.result-row:last-child { border-bottom: none; }
-.result-row strong { color: var(--text-primary); }
 
-/* ── Recharts overrides ─────────────────────────────────────── */
+.empty-icon { font-size: 2rem; margin-bottom: 0.75rem; opacity: 0.5; }
+
+/* ── Recharts overrides ──────────────────────────────────────── */
 .recharts-default-tooltip {
+<<<<<<< HEAD
   border-color: var(--border) !important;
   background: #0c2e3b !important;
   box-shadow: var(--shadow-sm) !important;
+=======
+  background: var(--ocean-mid) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+>>>>>>> f733b71 (Complete OceanWatch project updates)
   font-size: 0.8rem !important;
   color: var(--text-primary) !important;
 }
 
+<<<<<<< HEAD
 /* Ocean dashboard shell */
 .app:not(.app-landing) {
   flex-direction: row;
@@ -575,4 +1094,21 @@ input:focus, select:focus {
   .ocean-nav-links { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; }
   .ocean-nav-links a { height: 39px; justify-content: center; padding: 0 5px; gap: 6px; font-size: 10px; }
   .ocean-nav-links svg { width: 15px; height: 15px; }
+=======
+/* ── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--ocean-dark); }
+::-webkit-scrollbar-thumb {
+  background: rgba(0,212,255,0.2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(0,212,255,0.4); }
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .page-wrapper { padding: 1rem 1rem 3rem; }
+  .navbar { padding: 0 1rem; gap: 1rem; }
+  .nav-badge { display: none; }
+  .stat-value { font-size: 1.8rem; }
+>>>>>>> f733b71 (Complete OceanWatch project updates)
 }

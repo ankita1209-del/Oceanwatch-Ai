@@ -45,9 +45,60 @@ export default function Dashboard() {
     return () => { active = false; };
   }, []);
 
+<<<<<<< HEAD
   const observationCount = health?.database === "connected" ? events.length.toLocaleString() : "—";
   const riskCount = health?.database === "connected" ? features.length.toLocaleString() : "—";
   const healthStatus = health?.api === "online" ? "OceanWatch systems online" : "Connecting to ocean data";
+=======
+  const handleFormChange = (name, value) => {
+    setPredForm((prev) => ({ ...prev, [name]: value }));
+    // Clear stale error/result whenever the user edits any field
+    setPredictionError(null);
+    setPredictionResult(null);
+  };
+
+  const handlePredict = async (e) => {
+    e.preventDefault();
+    try {
+      setPredictLoading(true);
+      setPredictionError(null);
+      setPredictionResult(null);
+      const payload = {
+        lat:               parseFloat(predForm.lat),
+        lon:               parseFloat(predForm.lon),
+        date:              predForm.date,
+        sst_mean:          Number(predForm.sst_mean),
+        sst_anomaly:       Number(predForm.sst_anomaly),
+        chl_a_mean:        Number(predForm.chl_a_mean),
+        chl_anomaly:       Number(predForm.chl_anomaly),
+        turbidity:         Number(predForm.turbidity),
+        wind_speed:        Number(predForm.wind_speed),
+        wind_direction:    Number(predForm.wind_direction),
+        current_speed:     predForm.current_speed === "" ? null : Number(predForm.current_speed),
+        historical_hab_7d: parseInt(predForm.historical_hab_7d, 10),
+      };
+      const res = await predictHAB(payload);
+      setPredictionResult(res);
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      const msg =
+        typeof detail === "string"
+          ? detail
+          : detail?.detail || detail?.error ||
+            "Prediction failed. Ensure the backend is running with trained models and calibrated baselines.";
+      setPredictionError(msg);
+    } finally {
+      setPredictLoading(false);
+    }
+  };
+
+  const features       = geoData?.features || [];
+  const criticalCount  = features.filter((f) => f.properties?.risk_level === "CRITICAL").length;
+  const highCount      = features.filter((f) => f.properties?.risk_level === "HIGH").length;
+
+  const riskBadgeClass = (level) =>
+    level === "HIGH" || level === "CRITICAL" ? "badge badge-" + level.toLowerCase() : "badge badge-low";
+>>>>>>> f733b71 (Complete OceanWatch project updates)
 
   return (
     <div className="ocean-landing" id="top">
@@ -79,9 +130,126 @@ export default function Dashboard() {
           <div className="hero-live"><span className={health?.api === "online" ? "hero-live-dot connected" : "hero-live-dot"} />{healthStatus}</div>
         </div>
 
+<<<<<<< HEAD
         <div className="hero-location">
           <div className="location-mark"><WaveMark /></div>
           <div><span>OCEANWATCH RESEARCH MONITORING</span><strong>Observations, conditions &amp; risk estimates</strong></div>
+=======
+        {/* HAB Risk Predictor */}
+        <div className="card">
+          <h2 className="card-title">Model B — HAB Risk Prediction</h2>
+          <p style={{ fontSize: "0.825rem", color: "var(--text-muted)", marginBottom: "1rem" }}>
+            Enter measured values from a documented data source. This is a research prototype and not an official advisory.
+          </p>
+
+          {predictionModelAvailable === false && (
+            <div className="info-banner">No trained HAB prediction model is currently available.</div>
+          )}
+
+          <form onSubmit={handlePredict} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.7rem" }}>
+            {[
+              ["lat",               "Latitude",                    "any", -90,  90    ],
+              ["lon",               "Longitude",                   "any", -180, 180   ],
+              ["sst_mean",          "SST Mean (°C)",               "any"             ],
+              ["sst_anomaly",       "SST Anomaly (°C)",            "any"             ],
+              ["chl_a_mean",        "Chlorophyll-a Mean (mg/m³)",  "any"             ],
+              ["chl_anomaly",       "Chlorophyll-a Anomaly",       "any"             ],
+              ["turbidity",         "Turbidity",                   "any", 0          ],
+              ["wind_speed",        "Wind Speed",                  "any", 0          ],
+              ["wind_direction",    "Wind Direction (degrees)",    "1",   0,    360   ],
+              ["current_speed",     "Ocean Current Speed",         "any", 0          ],
+              ["historical_hab_7d", "Observed HAB Count (7 days)", "1",   0          ],
+            ].map(([name, label, step, min, max]) => (
+              <div className="form-group" key={name}>
+                <label htmlFor={`pred-${name}`}>{label}</label>
+                <input
+                  id={`pred-${name}`}
+                  type="number"
+                  step={step}
+                  min={min}
+                  max={max}
+                  required={name !== "current_speed"}
+                  value={predForm[name]}
+                  onChange={(e) => handleFormChange(name, e.target.value)}
+                />
+              </div>
+            ))}
+
+            <div style={{ gridColumn: "span 2", marginTop: "0.35rem" }}>
+              <button type="submit" disabled={predictLoading} className="btn btn-primary btn-full">
+                {predictLoading ? "Evaluating Risk…" : "Run HAB Risk Inference"}
+              </button>
+            </div>
+          </form>
+
+          {predictionError && (
+            <div
+              role="alert"
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "0.5rem",
+                color: "var(--risk-critical)",
+                fontSize: "0.825rem",
+                marginTop: "0.9rem",
+                background: "rgba(220,38,38,0.08)",
+                border: "1px solid rgba(220,38,38,0.25)",
+                borderRadius: "6px",
+                padding: "0.6rem 0.8rem",
+              }}
+            >
+              <span style={{ flex: 1 }}>⚠️ {predictionError}</span>
+              <button
+                type="button"
+                onClick={() => setPredictionError(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--risk-critical)",
+                  fontWeight: 700,
+                  fontSize: "1rem",
+                  lineHeight: 1,
+                  padding: 0,
+                }}
+                aria-label="Dismiss error"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {predictionResult && (
+            <div className="result-box">
+              <div className="result-row">
+                <span>Risk Level</span>
+                <strong className={`badge ${riskBadgeClass(predictionResult.risk_level)}`}>
+                  {predictionResult.risk_level}
+                </strong>
+              </div>
+              <div className="result-row">
+                <span>Composite Risk Score</span>
+                <strong>{predictionResult.risk_score} / 100</strong>
+              </div>
+              <div className="result-row">
+                <span>HAB Probability</span>
+                <strong>{(predictionResult.hab_probability * 100).toFixed(1)}%</strong>
+              </div>
+              <div className="result-row">
+                <span>Confidence</span>
+                <span>
+                  {predictionResult.confidence == null
+                    ? "Unavailable"
+                    : `${(predictionResult.confidence * 100).toFixed(1)}%`}
+                </span>
+              </div>
+              <div className="result-row">
+                <span>Model Version</span>
+                <span>{predictionResult.model_version}</span>
+              </div>
+            </div>
+          )}
+>>>>>>> f733b71 (Complete OceanWatch project updates)
         </div>
         <div className="hero-scroll-cue"><span /> SCROLL TO EXPLORE</div>
         <div className="hero-disclaimer">A research prototype · Not an official public-health advisory</div>
