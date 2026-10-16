@@ -73,3 +73,9 @@ alerts/alert_log.jsonl
 .DS_Store
 desktop.ini
 local_pgdata/
+
+# Local PowerShell cache
+Microsoft/
+
+# Local database backup
+oceanwatch_before_postgis_fix.sql
