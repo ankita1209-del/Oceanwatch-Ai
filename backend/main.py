@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import get_settings
 from backend.database.connection import close_database, create_tables, probe_database
-from backend.routes import alerts, events, history, predict, risk_map
+from backend.routes import alerts, events, history, predict, risk_map, satellite_images
 from sqlalchemy.exc import SQLAlchemyError
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -18,15 +18,29 @@ logger = logging.getLogger("oceanwatch.api")
 settings = get_settings()
 
 
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     logger.info("Starting OceanWatch HAB research API")
-    try:
-        await create_tables()
-    except Exception as exc:
-        logger.error("Database initialization failed (%s: %s); API will stay available for diagnostics", type(exc).__name__, exc)
+
+    if settings.AUTO_INIT_DB:
+        try:
+            await create_tables()
+        except Exception as exc:
+            logger.error(
+                "Database initialization failed (%s: %s); "
+                "API will stay available for diagnostics",
+                type(exc).__name__,
+                exc,
+            )
+    else:
+        logger.warning(
+            "Automatic database schema initialization is disabled"
+        )
+
     yield
     await close_database()
+
 
 
 app = FastAPI(
@@ -63,6 +77,7 @@ app.include_router(predict.router, prefix="/api", tags=["HAB Prediction"])
 app.include_router(risk_map.router, prefix="/api", tags=["HAB Risk Map"])
 app.include_router(history.router, prefix="/api", tags=["HAB History"])
 app.include_router(alerts.router, prefix="/api", tags=["HAB Alerts"])
+app.include_router(satellite_images.router, prefix="/api", tags=["Satellite Images"])
 
 
 @app.get("/")

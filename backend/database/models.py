@@ -183,3 +183,47 @@ class Alert(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     location = mapped_column(Geography(geometry_type="POINT", srid=4326, spatial_index=False), nullable=True)
+
+class SatelliteImage(Base):
+    """Inventory metadata for satellite TIFF products."""
+
+    __tablename__ = "satellite_images"
+    __table_args__ = (
+        UniqueConstraint(
+            "image_path",
+            name="uq_satellite_images_image_path",
+        ),
+        Index("ix_satellite_images_sha256", "sha256"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    image_filename: Mapped[str] = mapped_column(
+        String(512), nullable=False
+    )
+    image_path: Mapped[str] = mapped_column(
+        String(1024), nullable=False
+    )
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    product_type: Mapped[str] = mapped_column(
+        String(80), nullable=False
+    )
+    filename_date_token: Mapped[str | None] = mapped_column(
+        String(7), nullable=True
+    )
+    already_in_manifest: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    hab_label: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )
+    label_status: Mapped[str | None] = mapped_column(
+        String(80), nullable=True
+    )
+    validation_status: Mapped[str | None] = mapped_column(
+        String(40), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )

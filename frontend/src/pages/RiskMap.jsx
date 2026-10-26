@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+﻿import React, { useEffect, useState, useCallback, useMemo } from "react";
 import RiskMapView, { MVP_MAP_CENTER, MVP_MAP_ZOOM } from "../components/RiskMapView";
 import { fetchRiskMap } from "../services/api";
 import "./RiskMap.css";
@@ -73,24 +73,44 @@ export default function RiskMap() {
    */
   const stats = useMemo(() => {
     const list = geoData?.features || [];
-    if (!list.length) {
-      return { total: 0, criticalCount: 0, highCount: 0, maxScore: 0, avgSst: 0 };
-    }
-
+    let scoredCount = 0;
+    let uncalculatedCount = 0;
     let criticalCount = 0;
     let highCount = 0;
-    let maxScore = 0;
+    let maxScore = null;
     let sstSum = 0;
     let sstCount = 0;
 
     list.forEach((f) => {
       const p = f.properties || {};
-      const lvl = (p.risk_level || "").toUpperCase();
-      const score = Number(p.risk_score) || 0;
-      if (lvl === "CRITICAL" || score > 80) criticalCount++;
-      if (lvl === "HIGH" || (score > 60 && score <= 80)) highCount++;
-      if (score > maxScore) maxScore = score;
-      if (typeof p.sst_anomaly === "number") {
+      const score = p.risk_score;
+      const hasScore =
+        typeof score === "number" &&
+        Number.isFinite(score) &&
+        score >= 0 &&
+        score <= 100;
+
+      if (hasScore) {
+        scoredCount++;
+        const level = String(p.risk_level || "").toUpperCase();
+
+        if (level === "CRITICAL" || score > 80) {
+          criticalCount++;
+        } else if (level === "HIGH" || (score > 60 && score <= 80)) {
+          highCount++;
+        }
+
+        if (maxScore === null || score > maxScore) {
+          maxScore = score;
+        }
+      } else {
+        uncalculatedCount++;
+      }
+
+      if (
+        typeof p.sst_anomaly === "number" &&
+        Number.isFinite(p.sst_anomaly)
+      ) {
         sstSum += p.sst_anomaly;
         sstCount++;
       }
@@ -98,10 +118,12 @@ export default function RiskMap() {
 
     return {
       total: list.length,
+      scoredCount,
+      uncalculatedCount,
       criticalCount,
       highCount,
-      maxScore: Math.round(maxScore),
-      avgSst: sstCount > 0 ? (sstSum / sstCount).toFixed(2) : "0.00",
+      maxScore: maxScore === null ? null : Math.round(maxScore),
+      avgSst: sstCount > 0 ? (sstSum / sstCount).toFixed(2) : null,
     };
   }, [geoData]);
 
@@ -113,7 +135,7 @@ export default function RiskMap() {
       <header className="risk-map-page__header">
         <div className="risk-map-page__title-area">
           <h1 className="risk-map-page__title">
-            <span>🗺️</span> Harmful Algal Bloom Risk Map
+            <span>ðŸ—ºï¸</span> Harmful Algal Bloom Risk Map
           </h1>
           <p className="risk-map-page__subtitle">
             Geospatial intelligence overlay showing ocean zones flagged with active or impending
@@ -129,7 +151,7 @@ export default function RiskMap() {
             disabled={loading}
             title="Refresh map telemetry"
           >
-            <span>🔄</span> {loading ? "Updating..." : "Refresh Feed"}
+            <span>ðŸ”„</span> {loading ? "Updating..." : "Refresh Feed"}
           </button>
         </div>
       </header>
@@ -137,7 +159,7 @@ export default function RiskMap() {
       {/* Quick Summary Metrics Cards */}
       <section className="risk-stats-bar" aria-label="Risk Metrics Summary">
         <div className="risk-stat-card">
-          <div className="risk-stat-icon">📡</div>
+          <div className="risk-stat-icon">ðŸ“¡</div>
           <div className="risk-stat-info">
             <span className="risk-stat-label">Monitored Zones</span>
             <span className="risk-stat-val">{stats.total}</span>
@@ -149,7 +171,7 @@ export default function RiskMap() {
             className="risk-stat-icon"
             style={{ background: "rgba(239, 68, 68, 0.15)", color: "#ef4444" }}
           >
-            🚨
+            ðŸš¨
           </div>
           <div className="risk-stat-info">
             <span className="risk-stat-label">Critical Alerts</span>
@@ -164,11 +186,11 @@ export default function RiskMap() {
             className="risk-stat-icon"
             style={{ background: "rgba(249, 115, 22, 0.15)", color: "#f97316" }}
           >
-            ⚡
+            âš¡
           </div>
           <div className="risk-stat-info">
             <span className="risk-stat-label">Peak Risk Score</span>
-            <span className="risk-stat-val">{stats.maxScore} / 100</span>
+            <span className="risk-stat-val">{stats.maxScore === null ? "Not calculated" : `${stats.maxScore} / 100`}</span>
           </div>
         </div>
 
@@ -177,12 +199,12 @@ export default function RiskMap() {
             className="risk-stat-icon"
             style={{ background: "rgba(56, 139, 253, 0.15)", color: "#58a6ff" }}
           >
-            🌡️
+            ðŸŒ¡ï¸
           </div>
           <div className="risk-stat-info">
             <span className="risk-stat-label">Avg SST Anomaly</span>
             <span className="risk-stat-val">
-              {Number(stats.avgSst) > 0 ? `+${stats.avgSst}` : stats.avgSst} °C
+              {stats.avgSst === null ? "N/A" : `${Number(stats.avgSst) > 0 ? "+" : ""}${stats.avgSst} °C`}
             </span>
           </div>
         </div>
@@ -214,7 +236,7 @@ export default function RiskMap() {
           </span>
           {lastRefreshed && (
             <span style={{ opacity: 0.6 }}>
-              · {lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              Â· {lastRefreshed.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </span>
           )}
         </div>
@@ -225,7 +247,7 @@ export default function RiskMap() {
         {loading && (
           <div className="risk-loading-card">
             <div className="risk-spinner" />
-            <div className="risk-loading-text">Fetching Geospatial Risk Telemetry…</div>
+            <div className="risk-loading-text">Fetching Geospatial Risk Telemetryâ€¦</div>
             <div className="risk-loading-subtext">
               Querying oceanographic grid sensors and model inferences
             </div>
@@ -234,7 +256,7 @@ export default function RiskMap() {
 
         {!loading && error && (
           <div className="risk-error-card">
-            <div className="risk-error-icon">⚠️</div>
+            <div className="risk-error-icon">âš ï¸</div>
             <div className="risk-error-title">Failed to Load Risk Map Data</div>
             <p className="risk-error-msg">{error}</p>
             <div className="risk-error-actions">
@@ -243,7 +265,7 @@ export default function RiskMap() {
                 className="risk-btn risk-btn--primary"
                 onClick={fetchData}
               >
-                <span>🔄</span> Retry Request
+                <span>ðŸ”„</span> Retry Request
               </button>
             </div>
           </div>
@@ -251,7 +273,7 @@ export default function RiskMap() {
 
         {!loading && !error && isEmpty && (
           <div className="risk-empty-card">
-            <div className="risk-empty-icon">🌊</div>
+            <div className="risk-empty-icon">ðŸŒŠ</div>
             <h2 className="risk-empty-title">No Active HAB Events Detected</h2>
             <p className="risk-empty-subtext">
               All monitored ocean grid sectors currently exhibit normal biochemical parameters.
@@ -259,7 +281,7 @@ export default function RiskMap() {
             </p>
             <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
               <button type="button" className="risk-btn" onClick={fetchData}>
-                <span>🔄</span> Check Again
+                <span>ðŸ”„</span> Check Again
               </button>
             </div>
           </div>

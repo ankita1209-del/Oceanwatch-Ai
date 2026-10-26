@@ -3,7 +3,7 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database.connection import get_db
@@ -29,7 +29,13 @@ async def get_events(
 ):
     statement = select(HABEvent)
     if severity:
-        statement = statement.where(func.upper(HABEvent.severity) == severity.strip().upper())
+        requested_severity = severity.strip().upper()
+        statement = statement.where(
+            or_(
+                func.upper(HABEvent.risk_level) == requested_severity,
+                func.upper(HABEvent.severity) == requested_severity,
+            )
+        )
     if date_from:
         statement = statement.where(HABEvent.event_date >= date_from)
     if date_to:

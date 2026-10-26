@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -89,7 +89,7 @@ export default function RiskMapView({
           onClick={() => setMapTileStyle("dark")}
           title="Switch to Dark Basemap"
         >
-          🌑 Dark
+          ðŸŒ‘ Dark
         </button>
         <button
           type="button"
@@ -97,7 +97,7 @@ export default function RiskMapView({
           onClick={() => setMapTileStyle("ocean")}
           title="Switch to Bathymetric Ocean Basemap"
         >
-          🌊 Ocean
+          ðŸŒŠ Ocean
         </button>
         <button
           type="button"
@@ -105,7 +105,7 @@ export default function RiskMapView({
           onClick={() => setMapTileStyle("osm")}
           title="Switch to Standard Street / Coastal Basemap"
         >
-          🗺️ Standard
+          ðŸ—ºï¸ Standard
         </button>
       </div>
 
@@ -130,23 +130,25 @@ export default function RiskMapView({
           const geom = feature.geometry;
           if (!geom || !geom.coordinates) return null;
 
-          const riskConfig = getRiskLevelConfig(props.risk_level || props.risk_score);
-          const score = typeof props.risk_score === "number" ? props.risk_score : 50;
+          const hasRiskScore = typeof props.risk_score === "number" && Number.isFinite(props.risk_score) && props.risk_score >= 0 && props.risk_score <= 100;
+          const riskConfig = hasRiskScore ? getRiskLevelConfig(props.risk_level || props.risk_score) : { label: "Uncalculated", color: "#9ca3af" };
+          const score = hasRiskScore ? props.risk_score : null;
 
           // Scaling calculations:
           // Radius scales from 10 to 22 based on risk score (0-100)
-          const radius = Math.round(10 + (Math.min(100, Math.max(0, score)) / 100) * 12);
+          const safeScore = score === null ? 0 : Math.min(100, Math.max(0, score));
+          const radius = score === null ? 10 : Math.round(10 + (safeScore / 100) * 12);
           // Opacity scales from 0.55 to 0.85
-          const fillOpacity = (0.55 + (Math.min(100, Math.max(0, score)) / 100) * 0.35).toFixed(2);
+          const fillOpacity = score === null ? "0.20" : (0.55 + (safeScore / 100) * 0.35).toFixed(2);
 
           const locationName = props.location_name || `Zone #${idx + 1}`;
           const chlorophyllA =
             props.chlorophyll_a !== undefined && props.chlorophyll_a !== null
-              ? `${Number(props.chlorophyll_a).toFixed(1)} mg/m³`
+              ? `${Number(props.chlorophyll_a).toFixed(1)} mg/mÂ³`
               : "N/A";
           const sstAnomaly =
             props.sst_anomaly !== undefined && props.sst_anomaly !== null
-              ? `${Number(props.sst_anomaly) > 0 ? "+" : ""}${Number(props.sst_anomaly).toFixed(2)} °C`
+              ? `${Number(props.sst_anomaly) > 0 ? "+" : ""}${Number(props.sst_anomaly).toFixed(2)} Â°C`
               : "N/A";
           const detectedDate = formatDetectedDate(props.detected_at || props.date);
 
@@ -158,7 +160,7 @@ export default function RiskMapView({
             return (
               <React.Fragment key={`zone-point-${idx}`}>
                 {/* For critical or high zones, add an outer halo circle */}
-                {(props.risk_level === "CRITICAL" || score > 80) && (
+                {hasRiskScore && (props.risk_level === "CRITICAL" || score > 80) && (
                   <CircleMarker
                     center={[lat, lon]}
                     radius={radius + 8}
@@ -193,26 +195,26 @@ export default function RiskMapView({
                       <div className="hab-popup__header">
                         <div className="hab-popup__title-wrap">
                           <h3 className="hab-popup__title">
-                            <span>📍</span> {locationName}
+                            <span>ðŸ“</span> {locationName}
                           </h3>
                           <span className="hab-popup__coords">
-                            {lat.toFixed(4)}°N, {Math.abs(lon).toFixed(4)}°W
+                            {lat.toFixed(4)}Â°N, {Math.abs(lon).toFixed(4)}Â°W
                           </span>
                         </div>
-                        <RiskBadge level={props.risk_level || riskConfig.label} size="sm" />
+                        {hasRiskScore ? <RiskBadge level={props.risk_level || riskConfig.label} size="sm" /> : <span style={{ color: "#9ca3af", fontSize: "12px", fontWeight: 600 }}>Uncalculated</span>}
                       </div>
 
                       {/* Risk Score Progress Bar */}
                       <div className="hab-popup__score-bar-container">
                         <div className="hab-popup__score-header">
                           <span style={{ color: "#8b949e" }}>HAB Risk Index</span>
-                          <span style={{ color: riskConfig.color }}>{score} / 100</span>
+                          <span style={{ color: riskConfig.color }}>{score === null ? "Not calculated" : `${score} / 100`}</span>
                         </div>
                         <div className="hab-popup__score-bar-bg">
                           <div
                             className="hab-popup__score-bar-fill"
                             style={{
-                              width: `${Math.min(100, Math.max(0, score))}%`,
+                              width: `${score === null ? 0 : Math.min(100, Math.max(0, score))}%`,
                               backgroundColor: riskConfig.color,
                             }}
                           />
@@ -251,7 +253,7 @@ export default function RiskMapView({
 
                       <div className="hab-popup__footer">
                         <span className="hab-popup__date">
-                          <span>🕒</span> {detectedDate}
+                          <span>ðŸ•’</span> {detectedDate}
                         </span>
                       </div>
                     </div>
@@ -288,23 +290,23 @@ export default function RiskMapView({
                     <div className="hab-popup__header">
                       <div className="hab-popup__title-wrap">
                         <h3 className="hab-popup__title">
-                          <span>🌐</span> {locationName}
+                          <span>ðŸŒ</span> {locationName}
                         </h3>
                         <span className="hab-popup__coords">Polygon Zone</span>
                       </div>
-                      <RiskBadge level={props.risk_level || riskConfig.label} size="sm" />
+                      {hasRiskScore ? <RiskBadge level={props.risk_level || riskConfig.label} size="sm" /> : <span style={{ color: "#9ca3af", fontSize: "12px", fontWeight: 600 }}>Uncalculated</span>}
                     </div>
 
                     <div className="hab-popup__score-bar-container">
                       <div className="hab-popup__score-header">
                         <span style={{ color: "#8b949e" }}>HAB Risk Index</span>
-                        <span style={{ color: riskConfig.color }}>{score} / 100</span>
+                        <span style={{ color: riskConfig.color }}>{score === null ? "Not calculated" : `${score} / 100`}</span>
                       </div>
                       <div className="hab-popup__score-bar-bg">
                         <div
                           className="hab-popup__score-bar-fill"
                           style={{
-                            width: `${Math.min(100, Math.max(0, score))}%`,
+                            width: `${score === null ? 0 : Math.min(100, Math.max(0, score))}%`,
                             backgroundColor: riskConfig.color,
                           }}
                         />
@@ -324,7 +326,7 @@ export default function RiskMapView({
 
                     <div className="hab-popup__footer">
                       <span className="hab-popup__date">
-                        <span>🕒</span> {detectedDate}
+                        <span>ðŸ•’</span> {detectedDate}
                       </span>
                     </div>
                   </div>

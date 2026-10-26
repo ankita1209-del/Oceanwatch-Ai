@@ -59,6 +59,22 @@ export async function getEvents({
 }
 
 /** Fetch a single HAB event by ID. */
+/** List satellite image inventory metadata from the backend. */
+export async function getSatelliteImages({
+  limit = 50,
+  offset = 0,
+  productType = null,
+} = {}) {
+  const { data } = await api.get("/api/satellite-images", {
+    params: {
+      limit,
+      offset,
+      ...(productType ? { product_type: productType } : {}),
+    },
+  });
+  return data;
+}
+
 export async function getEvent(id) {
   const { data } = await api.get(`/api/events/${id}`);
   return data;

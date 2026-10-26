@@ -1,5 +1,5 @@
 
-"""Async PostgreSQL connection and request-scoped sessions."""
+"""Async database connection and request-scoped sessions."""
 
 import logging
 from collections.abc import AsyncIterator
@@ -17,16 +17,22 @@ from sqlalchemy.orm import sessionmaker
 from backend.config import get_settings
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 _engine = None
 _session_factory = None
 
-sync_engine = (
-    create_engine(settings.SYNC_DATABASE_URL, pool_pre_ping=True)
-    if settings.DATABASE_URL
-    else None
-)
+
+def _get_sync_engine():
+    settings = get_settings()
+    if not settings.DATABASE_URL:
+        return None
+    return create_engine(
+        settings.SYNC_DATABASE_URL,
+        pool_pre_ping=True,
+    )
+
+
+sync_engine = _get_sync_engine()
 
 SessionLocal = sessionmaker(
     bind=sync_engine,
@@ -103,6 +109,11 @@ async def get_optional_db() -> AsyncIterator[AsyncSession | None]:
 
 
 async def create_tables() -> None:
+    """Initialize missing tables and apply legacy PostgreSQL compatibility changes.
+
+    WARNING: This function can modify the database schema.
+    Review and back up the database before calling it.
+    """
     factory = _get_session_factory()
 
     if factory is None:
@@ -114,55 +125,17 @@ async def create_tables() -> None:
     from backend.database.models import Base
 
     async with _engine.begin() as connection:
-<<<<<<< HEAD
-        if _engine.dialect.name == "postgresql":
-            await connection.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
-            legacy_statements = (
-                """DO $$ BEGIN
-                    IF to_regclass('public.hab_events') IS NOT NULL THEN
-                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION;
-                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION;
-                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS location_name VARCHAR(200);
-                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS chlorophyll_a DOUBLE PRECISION;
-                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS sea_surface_temperature DOUBLE PRECISION;
-                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS sample_water_temperature DOUBLE PRECISION;
-                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS turbidity DOUBLE PRECISION;
-                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS wind_speed DOUBLE PRECISION;
-                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS source_record_id VARCHAR(120);
-                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS risk_score DOUBLE PRECISION;
-                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS risk_level VARCHAR(20);
-                        ALTER TABLE hab_events ADD COLUMN IF NOT EXISTS confidence DOUBLE PRECISION;
-                        ALTER TABLE hab_events ALTER COLUMN event_date TYPE DATE USING event_date::date;
-                        ALTER TABLE hab_events ALTER COLUMN location DROP NOT NULL;
-                        ALTER TABLE hab_events ALTER COLUMN severity DROP NOT NULL;
-                        ALTER TABLE hab_events ALTER COLUMN risk_score DROP NOT NULL;
-                        IF EXISTS (SELECT 1 FROM information_schema.columns
-                                   WHERE table_schema = 'public' AND table_name = 'hab_events'
-                                     AND column_name = 'lat') THEN
-                            ALTER TABLE hab_events ALTER COLUMN lat DROP NOT NULL;
-                        END IF;
-                        IF EXISTS (SELECT 1 FROM information_schema.columns
-                                   WHERE table_schema = 'public' AND table_name = 'hab_events'
-                                     AND column_name = 'lon') THEN
-                            ALTER TABLE hab_events ALTER COLUMN lon DROP NOT NULL;
-                        END IF;
-                    END IF;
-                END $$""",
-                "DO $$ BEGIN IF to_regclass('public.alerts') IS NOT NULL THEN ALTER TABLE alerts ADD COLUMN IF NOT EXISTS prediction_id INTEGER; ALTER TABLE alerts ADD COLUMN IF NOT EXISTS alert_level VARCHAR(20); ALTER TABLE alerts ADD COLUMN IF NOT EXISTS message TEXT; ALTER TABLE alerts ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION; ALTER TABLE alerts ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION; ALTER TABLE alerts ADD COLUMN IF NOT EXISTS hab_probability DOUBLE PRECISION; ALTER TABLE alerts ADD COLUMN IF NOT EXISTS acknowledged BOOLEAN NOT NULL DEFAULT FALSE; ALTER TABLE alerts ALTER COLUMN alert_id DROP NOT NULL; ALTER TABLE alerts ALTER COLUMN risk_level DROP NOT NULL; END IF; END $$",
-            )
-            for statement in legacy_statements:
-                await connection.execute(text(statement))
-=======
+        # Non-PostgreSQL development databases.
         if _engine.dialect.name != "postgresql":
->>>>>>> f733b71 (Complete OceanWatch project updates)
             await connection.run_sync(Base.metadata.create_all)
             return
 
+        # PostgreSQL/PostGIS setup.
         await connection.execute(
             text("CREATE EXTENSION IF NOT EXISTS postgis")
         )
 
-        # Safely update legacy HAB tables when they already exist.
+        # Make legacy HAB event columns compatible with current models.
         await connection.execute(
             text("""
                 DO $$
@@ -194,8 +167,7 @@ async def create_tables() -> None:
                             ADD COLUMN IF NOT EXISTS confidence DOUBLE PRECISION;
 
                         IF EXISTS (
-                            SELECT 1
-                            FROM information_schema.columns
+                            SELECT 1 FROM information_schema.columns
                             WHERE table_schema = 'public'
                               AND table_name = 'hab_events'
                               AND column_name = 'event_date'
@@ -260,7 +232,7 @@ async def create_tables() -> None:
             """)
         )
 
-        # Safely update legacy alert columns.
+        # Make legacy alert columns compatible with current models.
         await connection.execute(
             text("""
                 DO $$
@@ -307,13 +279,13 @@ async def create_tables() -> None:
             """)
         )
 
-        # Create any missing tables defined by the SQLAlchemy models.
+        # Create missing ORM-defined tables.
+        # This does not replace a proper reviewed migration.
         await connection.run_sync(Base.metadata.create_all)
 
 
 async def probe_database() -> dict[str, str | None]:
-    """Check database and PostGIS capability without exposing credentials."""
-
+    """Check database and PostGIS status without exposing credentials."""
     if not get_settings().DATABASE_URL:
         return {
             "status": "not_configured",
@@ -378,5 +350,10 @@ async def probe_database() -> dict[str, str | None]:
 
 
 async def close_database() -> None:
+    """Close the asynchronous database connection pool."""
+    global _engine, _session_factory
+
     if _engine is not None:
         await _engine.dispose()
+        _engine = None
+        _session_factory = None
