@@ -14,6 +14,7 @@ import MapView from "./pages/MapView";
 import Events from "./pages/Events";
 import History from "./pages/History";
 import Prediction from "./pages/Prediction";
+import SatelliteDetection from "./pages/SatelliteDetection";
 
 function AppShell() {
   const location = useLocation();
@@ -45,6 +46,9 @@ function AppShell() {
             <NavLink to="/history">
               Ocean History
             </NavLink>
+            <NavLink to="/satellite-detection">
+              Satellite Detection
+            </NavLink>
           </nav>
 
           <div className="sidebar-note">
@@ -61,6 +65,7 @@ function AppShell() {
           <Route path="/observations" element={<Events />} />
           <Route path="/history" element={<History />} />
           <Route path="/predict" element={<Prediction />} />
+          <Route path="/satellite-detection" element={<SatelliteDetection />} />
         </Routes>
       </main>
     </div>
@@ -74,4 +79,3 @@ export default function App() {
     </Router>
   );
 }
-

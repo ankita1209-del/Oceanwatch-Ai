@@ -14,7 +14,6 @@ const BASE_URL = API_BASE_URL;
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 30000,
-  headers: { "Content-Type": "application/json" },
 });
 
 /** Backend process plus PostgreSQL/PostGIS state. */
@@ -24,10 +23,72 @@ export async function getHealth() {
 }
 
 export function apiFailureMessage(error) {
-  if (!error?.response) return "Unable to connect to the OceanWatch AI backend.";
-  if (error.response.status === 503) return "Backend is running, but the database is unavailable.";
-  const detail = error.response.data?.detail;
-  return typeof detail === "string" ? detail : detail?.detail || detail?.error || `OceanWatch API request failed (${error.response.status}).`;
+  if (!error?.response) {
+    if (
+      ["ECONNABORTED", "ETIMEDOUT"].includes(error?.code) ||
+      /timeout/i.test(error?.message || "")
+    ) {
+      return "The satellite request timed out. Try again with a smaller image.";
+    }
+    return "Cannot connect to the OceanWatch AI backend. Check that FastAPI is running.";
+  }
+
+  const { status, data } = error.response;
+  const detail = data?.detail;
+  const message =
+    typeof detail === "string"
+      ? detail
+      : Array.isArray(detail)
+        ? detail.map((item) => item?.msg).filter(Boolean).join("; ")
+      : detail?.message || detail?.detail || detail?.error;
+
+  if (status === 404) {
+    return message && message !== "Not Found"
+      ? message
+      : "The requested API endpoint was not found. Check that the current FastAPI backend is running on the configured API port.";
+  }
+  if (status === 413) return message || "File exceeds the 100 MiB upload limit.";
+  if (status === 415) return message || "Choose a GeoTIFF file with a .tif or .tiff extension.";
+  if (status === 422 || status === 400) {
+    return message || "The uploaded file or request is not valid for satellite screening.";
+  }
+  if (status === 503) { return message || "Backend is running, but a required service is unavailable."; }
+  if (status === 504) return message || "Satellite image processing timed out. Try again with a smaller image.";
+  if (status >= 500) return "Satellite image processing failed. Please check the server logs.";
+  return message || `OceanWatch API request failed (${status}).`;
+}
+
+/** Upload and validate a GeoTIFF using the configured backend base URL. */
+export async function uploadSatelliteImage(file) {
+  const body = new FormData();
+  body.append("file", file);
+  const { data } = await api.post("/api/satellite-detection/upload", body, {
+    timeout: 120000,
+  });
+  return data;
+}
+
+/** Retrieve validation metadata for an uploaded image. */
+export async function validateSatelliteImage(fileId) {
+  const { data } = await api.get(`/api/satellite-detection/validate/${encodeURIComponent(fileId)}`);
+  return data;
+}
+
+/** Run scene-relative CIcyano indicator screening. */
+export async function analyzeSatelliteImage(fileId) {
+  const { data } = await api.post(`/api/satellite-detection/analyze/${encodeURIComponent(fileId)}`);
+  return data;
+}
+
+/** Retrieve a previously generated satellite screening result. */
+export async function getSatelliteAnalysis(analysisId) {
+  const { data } = await api.get(`/api/satellite-detection/result/${encodeURIComponent(analysisId)}`);
+  return data;
+}
+
+/** Resolve a backend-generated result path against the configured API URL. */
+export function getSatelliteOutputUrl(outputPath) {
+  return new URL(outputPath, `${API_BASE_URL}/`).toString();
 }
 
 // ---------------------------------------------------------------------------

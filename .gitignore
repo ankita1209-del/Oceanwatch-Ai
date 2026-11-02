@@ -79,3 +79,13 @@ Microsoft/
 
 # Local database backup
 oceanwatch_before_postgis_fix.sql
+# Local backups and database exports
+backups/
+data/backups/
+*.backup
+*.bak
+*.dump
+*-step-backup*
+*.backup-*
+*.backup_*.py
+safe-startup-backup/

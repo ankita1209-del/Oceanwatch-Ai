@@ -8,6 +8,7 @@ FastAPI API for the OceanWatch college research prototype, focused only on Harmf
 - HABSOS CSV import is explicit and source-attributed.
 - Prediction requires a trained joblib-compatible XGBoost model, ordered model metadata, calibrated baseline data, and PostgreSQL. Those artifacts are not supplied with this repository, so prediction correctly returns HTTP 503 until they are created from verified data.
 - Model A image inference is not trained or exposed as a prediction endpoint yet. The uploaded Sentinel-3 GeoTIFFs are data inputs, not trained model results.
+- Satellite HAB Detection provides experimental Sentinel-3 OLCI CIcyano spectral screening only; it is not ML classification or confirmation of a HAB.
 
 ## Architecture
 
@@ -107,6 +108,16 @@ python -m backend.diagnose_api
 | GET | `/api/risk-map` | GeoJSON of stored model predictions; empty FeatureCollection if none |
 | GET | `/api/alerts` | Recent research-dashboard alerts |
 | POST | `/api/alert` | Create an alert from an existing prediction above the configured threshold |
+| POST | `/api/satellite-detection/upload` | Upload and validate a supported CIcyano GeoTIFF |
+| GET | `/api/satellite-detection/validate/{file_id}` | Retrieve uploaded-image metadata and validation warnings |
+| POST | `/api/satellite-detection/analyze/{file_id}` | Run scene-relative CIcyano screening |
+| GET | `/api/satellite-detection/result/{analysis_id}` | Retrieve screening results |
+| GET | `/api/satellite-detection/result/{analysis_id}/overlay` | Retrieve the transparent map overlay |
+| GET | `/api/satellite-detection/result/{analysis_id}/indicator` | Retrieve the georeferenced indicator raster |
+| GET | `/api/satellite-detection/result/{analysis_id}/mask` | Retrieve the georeferenced relative-hotspot mask |
+| GET | `/api/satellite-detection/health` | Processing capability and upload limits |
+
+Satellite inputs are limited to Sentinel-3 OLCI CIcyano `v9110V20255_2` GeoTIFFs with the expected product metadata. Uploads and outputs are held outside the repository in a temporary directory with 24-hour expiry. The Tukey upper fence is a scene-relative outlier rule, not a biological HAB threshold. See [docs/satellite_hab_detection.md](../docs/satellite_hab_detection.md) for scientific interpretation and supported product details.
 
 Events keep the frontend-compatible array shape and `date`, `lat`, `lon` keys. Map coordinates follow GeoJSON order `[longitude, latitude]`. There are no fabricated fallback rows.
 
