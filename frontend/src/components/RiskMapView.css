@@ -17,7 +17,6 @@
   z-index: 1;
 }
 
-/* Map Header Controls overlay (Layer switcher, Fullscreen/Reset) */
 .risk-map-controls-bar {
   position: absolute;
   top: 16px;
@@ -61,7 +60,6 @@
   color: #ffffff;
 }
 
-/* Customizing Leaflet Dark Theme Popup */
 .leaflet-popup-content-wrapper {
   background: #161b22 !important;
   color: #e6edf3 !important;
@@ -95,7 +93,6 @@
   color: #f0f6fc !important;
 }
 
-/* Popup Content Internal Styling */
 .hab-popup {
   padding: 1rem 1.15rem;
 }

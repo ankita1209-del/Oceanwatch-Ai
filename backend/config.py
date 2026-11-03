@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     APP_NAME: str = "OceanWatch AI"
     ENVIRONMENT: str = "development"
+    AUTO_INIT_DB: bool = False
     DATABASE_URL: str = "postgresql+asyncpg://oceanwatch:mypass@127.0.0.1:5432/oceanwatch"
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001"
     PREDICTION_MODEL_PATH: str = "models/prediction/xgboost_model.pkl"

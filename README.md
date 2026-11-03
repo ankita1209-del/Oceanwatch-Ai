@@ -280,8 +280,16 @@ train.bat
 | GET    | `/api/risk-map`   | GeoJSON risk map for current period  |
 | GET    | `/api/history`    | Historical HAB occurrences           |
 | POST   | `/api/alert`      | Trigger/create an alert              |
+| POST   | `/api/satellite-detection/upload` | Upload and validate a supported CIcyano GeoTIFF |
+| POST   | `/api/satellite-detection/analyze/{file_id}` | Run experimental scene-relative CIcyano screening |
 
 Full API docs available at `http://localhost:8000/docs` when the backend is running.
+
+## 🛰️ Satellite HAB Detection
+
+The **Satellite Detection** page accepts the repository's supported Sentinel-3 OLCI CIcyano GeoTIFF product, validates its metadata, computes scaled indicator statistics when the product's scale formula is available, and displays a georeferenced relative-hotspot overlay. It rejects RGB previews, Sentinel-2 inputs, and unsupported product versions rather than inferring missing spectral bands. The relative hotspot screen is not a confirmed HAB diagnosis, probability, or validated model result.
+
+See [docs/satellite_hab_detection.md](docs/satellite_hab_detection.md) for supported inputs, processing details, API routes, result interpretation, limitations, and test/start commands.
 
 ---
 

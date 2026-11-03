@@ -8,7 +8,6 @@
   gap: 1.5rem;
 }
 
-/* Page Header */
 .risk-map-page__header {
   display: flex;
   justify-content: space-between;
@@ -49,7 +48,6 @@
   flex-wrap: wrap;
 }
 
-/* Quick Stats Bar */
 .risk-stats-bar {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -106,7 +104,6 @@
   line-height: 1.2;
 }
 
-/* Filter Bar */
 .risk-filter-bar {
   display: flex;
   justify-content: space-between;
@@ -181,7 +178,7 @@
   background: #eab308;
 }
 
-/* Primary Action Buttons */
+
 .risk-btn {
   background: #21262d;
   border: 1px solid #30363d;
@@ -222,7 +219,6 @@
   background: #388bfd;
 }
 
-/* Loading State */
 .risk-loading-card {
   height: 640px;
   display: flex;
@@ -260,7 +256,6 @@
   color: #8b949e;
 }
 
-/* Error State */
 .risk-error-card {
   padding: 2.5rem;
   background: rgba(239, 68, 68, 0.08);
@@ -300,7 +295,6 @@
   justify-content: center;
 }
 
-/* Empty State */
 .risk-empty-card {
   height: 480px;
   display: flex;

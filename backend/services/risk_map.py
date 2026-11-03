@@ -1,4 +1,4 @@
-"""
+﻿"""
 Database access and risk map aggregation service for OceanWatch AI.
 """
 
@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from backend.config import get_settings
 
-# Lazy engine — only created when DATABASE_URL is available.
+# Lazy engine â€” only created when DATABASE_URL is available.
 _engine = None
 
 
@@ -87,7 +87,7 @@ async def get_current_risk_map() -> List[Dict[str, Any]]:
         ORDER BY location_name ASC
     """)
 
-    async with _engine.connect() as conn:
+    async with _get_engine().connect() as conn:
         result = await conn.execute(query)
         rows = result.mappings().all()
 
@@ -97,11 +97,12 @@ async def get_current_risk_map() -> List[Dict[str, Any]]:
             "location_name": str(row["location_name"]),
             "lat": float(row["lat"]),
             "lon": float(row["lon"]),
-            "risk_score": float(row["risk_score"] or 0),
-            "risk_level": str(row["risk_level"] or "LOW").upper(),
-            "chlorophyll_a": float(row["chlorophyll_a"] or 0) if row["chlorophyll_a"] is not None else 0.0,
-            "sst_anomaly": float(row["sst_anomaly"] or 0) if row["sst_anomaly"] is not None else 0.0,
+            "risk_score": float(row["risk_score"]) if row["risk_score"] is not None else None,
+            "risk_level": str(row["risk_level"]).upper() if row["risk_level"] is not None else None,
+            "chlorophyll_a": float(row["chlorophyll_a"]) if row["chlorophyll_a"] is not None else None,
+            "sst_anomaly": float(row["sst_anomaly"]) if row["sst_anomaly"] is not None else None,
             "detected_at": _isoformat(row["detected_at"]),
         })
 
     return records
+

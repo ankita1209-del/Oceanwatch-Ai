@@ -142,6 +142,8 @@ def main(input_path: Path, output_path: Path) -> None:
 
     # -- Final selection & validation --
     out_cols = REQUIRED_MODEL_FEATURES + ["hab_label", "source", "date"]
+    if "OBJECTID" in df.columns:
+        out_cols = ["OBJECTID"] + out_cols
     out = df[out_cols].dropna(subset=REQUIRED_MODEL_FEATURES + ["hab_label", "date"])
     out = out.reset_index(drop=True)
 

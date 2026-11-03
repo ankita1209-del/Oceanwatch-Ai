@@ -45,8 +45,6 @@ MANIFEST_FIELDS = (
     "center_projected_y",
     "latitude",
     "longitude",
-    "latitude",
-    "longitude",
     "hab_label",
     "label_source_id",
     "label_status",
