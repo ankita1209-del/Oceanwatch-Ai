@@ -336,22 +336,7 @@ export default function SatelliteDetection() {
 
         <h1>Satellite CIcyano Screening</h1>
 
-        <p>
-          Review relative CIcyano spectral-indicator patterns
-          from a supported Sentinel-3 product. This workflow
-          does not confirm HAB presence.
-        </p>
       </header>
-
-      <div className="satellite-notice" role="note">
-        <strong>Supported input:</strong> Sentinel-3 OLCI CIcyano
-        GeoTIFF product version v9110V20255_2. RGB previews and
-        unrecognized products cannot be analyzed.
-      </div>
-
-      <div className="satellite-disclaimer" role="note">
-        {DISCLAIMER}
-      </div>
 
       <section
         className="satellite-panel"
@@ -401,7 +386,12 @@ export default function SatelliteDetection() {
           />
 
           <div className="satellite-drop-icon" aria-hidden="true">
-            ↑
+            <svg viewBox="0 0 48 48" focusable="false">
+              <path d="M24 7v19" />
+              <path d="m17 17 7-10 7 10" />
+              <path d="M11 27v12h26V27" />
+              <path d="M17 33h14" />
+            </svg>
           </div>
 
           <p>Drag and drop your GeoTIFF here</p>

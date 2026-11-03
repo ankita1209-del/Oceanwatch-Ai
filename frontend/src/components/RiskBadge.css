@@ -12,7 +12,6 @@
   white-space: nowrap;
 }
 
-/* Sizes */
 .risk-badge--sm {
   padding: 0.2rem 0.5rem;
   font-size: 0.7rem;
@@ -28,7 +27,6 @@
   font-size: 0.88rem;
 }
 
-/* Dot indicator */
 .risk-badge__dot {
   width: 6px;
   height: 6px;
@@ -41,7 +39,7 @@
   height: 8px;
 }
 
-/* Pulsing effect for critical & high risk */
+
 .risk-badge__dot--pulse {
   animation: badge-pulse 1.8s infinite ease-in-out;
 }

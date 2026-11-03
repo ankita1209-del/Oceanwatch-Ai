@@ -110,8 +110,16 @@
   border-radius: 50%;
   background: var(--accent-light);
   color: var(--accent);
-  font-size: 1.5rem;
-  font-weight: 700;
+}
+
+.satellite-drop-icon svg {
+  width: 28px;
+  height: 28px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .satellite-dropzone p {

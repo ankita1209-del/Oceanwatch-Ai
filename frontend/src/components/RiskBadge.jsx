@@ -1,9 +1,6 @@
 import React from "react";
 import "./RiskBadge.css";
 
-/**
- * Standard OceanWatch Risk Color Palettes & Metadata
- */
 export const RISK_LEVELS = {
   LOW: {
     label: "LOW",
@@ -43,9 +40,6 @@ export const RISK_LEVELS = {
   },
 };
 
-/**
- * Helper to determine risk level configuration from level string or score number.
- */
 export function getRiskLevelConfig(levelOrScore) {
   if (typeof levelOrScore === "number") {
     if (levelOrScore > 80) return RISK_LEVELS.CRITICAL;
@@ -58,17 +52,6 @@ export function getRiskLevelConfig(levelOrScore) {
   return RISK_LEVELS[key] || RISK_LEVELS.LOW;
 }
 
-/**
- * Reusable Risk Badge Component
- *
- * @param {string} [props.level] - "LOW" | "MODERATE" | "HIGH" | "CRITICAL"
- * @param {number} [props.score] - Optional numerical risk score (0-100)
- * @param {"sm" | "md" | "lg"} [props.size="md"] - Badge size variant
- * @param {boolean} [props.showDot=true] - Display status dot
- * @param {boolean} [props.showScore=false] - Display numerical score inside badge
- * @param {string} [props.className] - Additional CSS classes
- * @param {Object} [props.style] - Inline style overrides
- */
 export default function RiskBadge({
   level,
   score,

@@ -3,11 +3,6 @@ import RiskMapView, { MVP_MAP_CENTER, MVP_MAP_ZOOM } from "../components/RiskMap
 import { fetchRiskMap } from "../services/api";
 import "./RiskMap.css";
 
-/**
- * Risk Map Page Component
- * Handles data fetching from GET /api/risk-map, state management (loading, error, empty),
- * risk level filtering, summary metrics, and Leaflet map rendering.
- */
 export default function RiskMap() {
   const [geoData, setGeoData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -15,9 +10,6 @@ export default function RiskMap() {
   const [filterLevel, setFilterLevel] = useState("ALL");
   const [lastRefreshed, setLastRefreshed] = useState(null);
 
-  /**
-   * Fetch data from GET /api/risk-map
-   */
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -27,7 +19,6 @@ export default function RiskMap() {
       if (response && Array.isArray(response.features)) {
         setGeoData(response);
       } else {
-        // In case backend returned empty object or non-standard format
         setGeoData({ type: "FeatureCollection", features: [] });
       }
       setLastRefreshed(new Date());
@@ -45,9 +36,6 @@ export default function RiskMap() {
     fetchData();
   }, [fetchData]);
 
-  /**
-   * Filter features according to selected risk level tab
-   */
   const filteredGeoData = useMemo(() => {
     if (!geoData || !Array.isArray(geoData.features)) {
       return { type: "FeatureCollection", features: [] };
@@ -68,9 +56,6 @@ export default function RiskMap() {
     };
   }, [geoData, filterLevel]);
 
-  /**
-   * Calculate summary metrics from active features
-   */
   const stats = useMemo(() => {
     const list = geoData?.features || [];
     let scoredCount = 0;
@@ -131,7 +116,6 @@ export default function RiskMap() {
 
   return (
     <div className="risk-map-page">
-      {/* Header Section */}
       <header className="risk-map-page__header">
         <div className="risk-map-page__title-area">
           <h1 className="risk-map-page__title">
@@ -156,7 +140,6 @@ export default function RiskMap() {
         </div>
       </header>
 
-      {/* Quick Summary Metrics Cards */}
       <section className="risk-stats-bar" aria-label="Risk Metrics Summary">
         <div className="risk-stat-card">
           <div className="risk-stat-icon">ðŸ“¡</div>
@@ -210,7 +193,6 @@ export default function RiskMap() {
         </div>
       </section>
 
-      {/* Filter and Source Bar */}
       <section className="risk-filter-bar">
         <div className="risk-filter-group">
           <span className="risk-filter-label">Filter Severity:</span>
@@ -242,7 +224,6 @@ export default function RiskMap() {
         </div>
       </section>
 
-      {/* State Rendering: Loading, Error, Empty, or Interactive Map */}
       <section className="risk-map-main-area" style={{ position: "relative" }}>
         {loading && (
           <div className="risk-loading-card">

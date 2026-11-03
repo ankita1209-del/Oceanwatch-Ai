@@ -2,14 +2,6 @@ import React, { useState } from "react";
 import { RISK_LEVELS } from "./RiskBadge";
 import "./RiskLegend.css";
 
-/**
- * Risk Legend Component
- * Displays the 4 HAB risk level bands, corresponding colors, and score thresholds.
- *
- * @param {"bottom-left" | "top-right" | "bottom-right" | "top-left"} [props.position="bottom-left"]
- * @param {boolean} [props.collapsible=true]
- * @param {string} [props.className]
- */
 export default function RiskLegend({
   position = "bottom-left",
   collapsible = true,
