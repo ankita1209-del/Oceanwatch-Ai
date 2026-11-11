@@ -89,37 +89,48 @@ function getCoordinateKey(lat, lon) {
   return `${Number(lat)}:${Number(lon)}`;
 }
 
+/* UPDATED: Marker colour is based on highest risk severity */
 function makeGroupedMarkerIcon(records) {
-  const segments = [];
+  const severityOrder = ["CRITICAL", "HIGH", "MODERATE", "LOW"];
 
-  if (records.some((record) => record.type === "observation")) {
-    segments.push(SOURCE_COLORS.observation);
-  }
-
-  if (records.some((record) => record.type === "assessment")) {
-    segments.push(SOURCE_COLORS.assessment);
-  }
-
-  if (records.some((record) => record.type === "prediction")) {
-    segments.push(SOURCE_COLORS.prediction);
-  }
-
-  if (segments.length === 0) {
-    segments.push(OBSERVATION_COLOR);
-  }
-
-  const slice = 100 / segments.length;
-
-  const gradient = segments
-    .map(
-      (color, index) =>
-        `${color} ${index * slice}% ${(index + 1) * slice}%`
+  const riskLevels = records
+    .filter(
+      (record) =>
+        record.type === "assessment" || record.type === "prediction"
     )
-    .join(", ");
+    .map((record) =>
+      String(record.data?.properties?.risk_level || "").toUpperCase()
+    )
+    .filter((level) => severityOrder.includes(level));
 
-  const size = 30;
+  const highestSeverity = severityOrder.find((level) =>
+    riskLevels.includes(level)
+  );
 
-  const html = `<span style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border:2px solid #fff;border-radius:50%;background:conic-gradient(${gradient});box-shadow:0 1px 5px #0009;color:#fff;font:bold 12px sans-serif;text-shadow:0 1px 2px #000">${records.length}</span>`;
+  const markerColor = highestSeverity
+    ? RISK_COLORS[highestSeverity]
+    : records.some((record) => record.type === "observation")
+      ? OBSERVATION_COLOR
+      : SOURCE_COLORS.prediction;
+
+  const size = 32;
+
+  const html = `
+    <span style="
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      width:${size}px;
+      height:${size}px;
+      border:2px solid #fff;
+      border-radius:50%;
+      background:${markerColor};
+      box-shadow:0 1px 5px #0009;
+      color:#fff;
+      font:bold 12px sans-serif;
+      text-shadow:0 1px 2px #000;
+    ">${records.length}</span>
+  `;
 
   return L.divIcon({
     className: "",
