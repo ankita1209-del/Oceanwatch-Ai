@@ -2,26 +2,27 @@
 
 ## Feature overview
 
-The Satellite HAB Detection page accepts a georeferenced GeoTIFF, validates its raster structure and supported product metadata, and creates a descriptive spatial screening result. It is an experimental research tool, not a confirmed HAB diagnosis, public-health warning, or machine-learning prediction.
+The Satellite Product Analysis page accepts a georeferenced GeoTIFF, validates its raster structure and supported product metadata, and shows a preview or CIcyano spatial screen. It displays four HAB result cards; unavailable outputs include a short reason rather than estimated or fabricated values.
 
-The current implementation supports only the repository's Sentinel-3 OLCI CIcyano product family, identified as `v9110V20255_2` in source metadata. It does not process Sentinel-2, raw multispectral inputs, truecolor/RGB previews, NetCDF, or other CIcyano product versions. Unsupported inputs receive a validation error rather than being interpreted as supported imagery.
+The validator recognizes Sentinel-3 OLCI CIcyano, CI-CIcyano, CI, CInonfluor, Kd_Rhos, truecolor, landwatercolor, rbd_rhos, rrs665, chloc4_global, and chl_switch products. CIcyano uses its dedicated screening path; other recognized products receive a visual preview only. Unsupported inputs are rejected rather than interpreted as supported imagery.
+
+The configured XGBoost model (`XGBoost HAB Future-Risk Prediction`, version `2026-10-08`) expects environmental and historical observations rather than GeoTIFF pixels and is not used for satellite uploads. An optional ResNet-18 image model (`ResNet-18 HAB Image Detector`, version `2026-10-08` in its model metadata) can run experimentally on CIcyano images with sufficient valid coverage. Its labels were generated from a CIcyano intensity threshold, and its test set was reused during model selection; its output is not validated as a HAB detection or calibrated biological HAB probability. The UI therefore does not present its classifier score as a HAB probability. Probability and environmental risk score/level remain unavailable until suitable validation, calibration, and required risk inputs are available. If the image model or metadata is unavailable, the model-version card also reports unavailable.
 
 ## Upload instructions
 
 1. Start the FastAPI backend and React frontend.
 2. Open **Satellite Detection** from the OceanWatch sidebar.
 3. Select or drop a `.tif` / `.tiff` GeoTIFF.
-4. Review the sensor, product, CRS, resolution, geographic bounds, valid-pixel percentage, and warnings returned by validation.
-5. Select **Analyze satellite image** and review the spatial overlay and screening statistics.
+4. Select **Analyze satellite image** and review the result cards and satellite preview.
 
 Uploads must be no larger than 100 MiB, no wider or taller than 20,000 pixels, and contain no more than 20 million pixels. Validation has a 30-second budget and analysis has a cooperative 120-second processing deadline. The server verifies the GeoTIFF driver and metadata; the original filename is not used as a storage path. Uploaded files and generated results are stored outside the project dataset in the system temporary directory. They expire after 24 hours and are removed during startup cleanup or a later upload cleanup. Analysis history is not persisted to PostgreSQL.
 
 ## Processing architecture
 
 1. `backend/routes/satellite_detection.py` streams uploads to server-generated UUID filenames and enforces size, extension, and ID checks.
-2. `backend/services/satellite_validator.py` opens the raster with Rasterio and validates dimensions, CRS, transform, single-band structure, sensor/product identifiers, product version, quality-mask metadata, and valid-pixel coverage.
-3. `backend/services/satellite_processor.py` scans the raster in 512-pixel windows, applies the supported CIcyano quality codes and scale, computes statistics over valid scaled values, and writes separate indicator and mask GeoTIFFs.
-4. The preview rasters are reprojected to EPSG:3857 before PNG generation. React positions that preview using the returned reprojected geographic bounds; the original analysis GeoTIFFs are not reprojected or resampled.
+2. `backend/services/satellite_validator.py` opens the raster with Rasterio and checks dimensions, CRS, transform, sensor/product identifiers, CIcyano quality metadata, and valid-pixel coverage.
+3. `backend/services/satellite_processor.py` applies CIcyano screening only to verified CIcyano products; other supported products receive a visual preview.
+4. The API runs the optional ResNet model only for compatible CIcyano products with sufficient coverage. It returns the experimental classifier output separately from unavailable HAB probability and risk values; other products do not run image-model inference.
 
 The indicator and mask GeoTIFFs preserve the source CRS, transform, dimensions, and resolution. The display preview uses a separate EPSG:3857 grid. The screen does not modify or overwrite repository imagery.
 
@@ -33,8 +34,9 @@ The backend selects Rasterio's bundled `proj_data` directory for `PROJ_DATA` and
 
 | Sensor / product | Supported input | Notes |
 |---|---|---|
-| Sentinel-3 OLCI CIcyano, product family `v9110V20255_2` | One-band georeferenced `uint8` GeoTIFF with SAPS source, product, quality, and supported reverse-scale metadata | Product identity is metadata-consistent, not independently authenticated. The required scale formula must be present and exactly supported; the filename alone is not trusted. |
-| Sentinel-3 truecolor RGB | No | RGB display values are not treated as spectral bands. |
+| Sentinel-3 OLCI CIcyano, supported versions | Yes | One-band GeoTIFF with verified metadata rules; used for CIcyano screening. |
+| Sentinel-3 truecolor and landwatercolor | Yes | Three-band visual preview only; not interpreted as calibrated HAB inputs. |
+| CI, CInonfluor, Kd_Rhos, CI-CIcyano, rbd_rhos, rrs665, chloc4_global, chl_switch | Yes | Product preview only; CIcyano screening is not applied. |
 | Sentinel-2 multispectral | No | No Sentinel-2 band alignment or index workflow is implemented. |
 | Other sensors, raw band products, unknown CIcyano versions | No | Rejected as unsupported or missing required product information. |
 
@@ -118,7 +120,7 @@ The preview's georeferencing is checked by transforming source pixel centres ind
 | GET | `/api/satellite-detection/result/{analysis_id}/mask` | Retrieve the georeferenced relative-hotspot mask GeoTIFF |
 | GET | `/api/satellite-detection/health` | Report processing support, dependency versions, upload limits, and deadline |
 
-The response contains sensor/product metadata, source geographic bounds, quality statistics and warnings, actual scaled indicator statistics, the threshold and its source, hotspot count/percentage, EPSG:3857 `display` bounds/grid/resampling metadata, output URLs, and an experimental-screening disclaimer. Missing measurements are not replaced with zero.
+The analysis response includes preview/output URLs and a `hab_detection` object. The three HAB metrics remain `null` unless a compatible, calibrated model and its required inputs are available; the response includes a reason and the configured model name/version when known. The page does not display raw band statistics or product metadata cards.
 
 ## Result interpretation and limitations
 
@@ -135,11 +137,11 @@ The response contains sensor/product metadata, source geographic bounds, quality
 
 ## Tests
 
-The backend tests create synthetic CIcyano GeoTIFFs to verify file validation, missing/unsupported/malformed scale metadata, quality masking, scaled-value statistics, exact coverage category boundaries, skipped screening below 10%, output cleanup, two input CRSs, output bounds, orientation, transparency, categorical nearest-neighbour display, API errors, and output rasters. The frontend tests verify early extension rejection, displayed statistics/provenance, coverage-specific status and warnings, distinction between no hotspots and screening not performed, and use of reprojected map bounds.
+The backend tests create synthetic CIcyano and preview-product GeoTIFFs to verify validation, CIcyano coverage safeguards, preview responses for truecolor, landwatercolor and other recognized products, unavailable-model behavior, output cleanup, map bounds, and API responses. The frontend production build validates the updated responsive result cards and retained upload/preview/map flow.
 
 The repository Lake Okeechobee sample was exercised through upload, validation, analysis, result retrieval, and indicator/mask/PNG retrieval. It returned 4,234 valid and 40,288 invalid pixels (9.5099% valid coverage), so the current safeguard reports `INSUFFICIENT_COVERAGE` and does not calculate a hotspot threshold or count. The continuous valid-pixel statistics remain available: mean `0.0006434379581`, median `0`, population standard deviation `0.0009118763599`, and P25/P50/P75/P90/P95/P99 of `0/0/0.001116863248/0.001940885878/0.002488857318/0.003664375746`. Its mask is nodata throughout; its continuous indicator and map overlay are still retrievable. The sample reports no acquisition date or band description.
 
-Current automated validation: backend `python -m pytest tests -q` — 69 passed; frontend test suite — 21 passed; production build — compiled successfully. The verification is software/geospatial consistency evidence only, not validation of HAB detection or biological thresholds.
+Current automated validation: backend `python -m pytest tests -q` — 87 passed; frontend test suite — 21 passed; production build — compiled successfully. This verifies software behavior only, not the scientific validity of HAB predictions or biological thresholds.
 
 For the repository sample, the old source-grid image stretched over geographic bounds was evaluated by transforming all 44,522 source pixel centres to EPSG:3857 and measuring displacement from the map coordinate implied by its linear ImageOverlay position: mean 76.58 m, P95 194.95 m, maximum 282.96 m. For the new 197 × 227 EPSG:3857 display grid, the projected coordinates implied by Leaflet's returned image bounds were compared with the destination affine at all 44,719 display-cell centres: mean 1.43×10⁻⁹ m, P95 2.33×10⁻⁹ m, maximum 2.33×10⁻⁹ m (floating-point round-trip residual). This reproduces the previous audit's approximate 76.6/195/283 m baseline and measures map registration, not resampling accuracy. The distance from a source pixel centre to the nearest display-grid cell centre is grid quantization, not overlay misregistration. The synthetic regression tests independently check selected source coordinates, orientation, transparency, and bounds.
 
@@ -169,7 +171,7 @@ npm.cmd install
 npm.cmd run dev
 ```
 
-Open `http://localhost:3000`, select **Satellite Detection**, upload a supported CIcyano GeoTIFF, and analyze it. The API can also be exercised through `http://localhost:8000/docs`.
+Open `http://localhost:3000`, select **Satellite Detection**, upload a supported Sentinel-3 GeoTIFF, and analyze it. The API can also be exercised through `http://localhost:8000/docs`.
 
 The frontend API base defaults to `http://localhost:8000`. If `frontend/.env` sets `REACT_APP_API_URL`, it must point to the same port as FastAPI; restart the React development server after changing it. A 404 response with `{"detail":"Not Found"}` usually means the configured server does not have the satellite routes registered.
 

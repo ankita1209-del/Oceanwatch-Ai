@@ -6,9 +6,8 @@ FastAPI API for the OceanWatch college research prototype, focused only on Harmf
 
 - Event, history, risk-map, and alert APIs query PostgreSQL; they do not return sample/fabricated records.
 - HABSOS CSV import is explicit and source-attributed.
-- Prediction requires a trained joblib-compatible XGBoost model, ordered model metadata, calibrated baseline data, and PostgreSQL. Those artifacts are not supplied with this repository, so prediction correctly returns HTTP 503 until they are created from verified data.
-- Model A image inference is not trained or exposed as a prediction endpoint yet. The uploaded Sentinel-3 GeoTIFFs are data inputs, not trained model results.
-- Satellite HAB Detection provides experimental Sentinel-3 OLCI CIcyano spectral screening only; it is not ML classification or confirmation of a HAB.
+- `/api/predict` uses the configured XGBoost tabular model and environmental inputs; it does not accept a satellite image as a feature vector.
+- Satellite Detection screens CIcyano products and previews other recognized Sentinel-3 products. The optional ResNet image model runs experimentally on CIcyano only; its score is not a calibrated HAB probability and is not shown as one. HAB probability and environmental risk results remain unavailable.
 
 ## Architecture
 
@@ -104,20 +103,20 @@ python -m backend.diagnose_api
 | GET | `/api/events` | Source HAB events; supports `limit`, `offset`, `severity`, `date_from`, `date_to`, `location`, and coordinate bounds |
 | GET | `/api/events/{id}` | One source HAB event, or 404 |
 | GET | `/api/history?lat=...&lon=...` | Date-grouped source observations near a coordinate; optional `start_date`, `end_date`, `radius_degrees`, `limit` |
-| POST | `/api/predict` | XGBoost future-risk prediction; 503 until a real trained model, baselines, and DB exist |
+| POST | `/api/predict` | XGBoost future-risk prediction from environmental and historical inputs |
 | GET | `/api/risk-map` | GeoJSON of stored model predictions; empty FeatureCollection if none |
 | GET | `/api/alerts` | Recent research-dashboard alerts |
 | POST | `/api/alert` | Create an alert from an existing prediction above the configured threshold |
-| POST | `/api/satellite-detection/upload` | Upload and validate a supported CIcyano GeoTIFF |
+| POST | `/api/satellite-detection/upload` | Upload and validate a supported Sentinel-3 product GeoTIFF |
 | GET | `/api/satellite-detection/validate/{file_id}` | Retrieve uploaded-image metadata and validation warnings |
-| POST | `/api/satellite-detection/analyze/{file_id}` | Run scene-relative CIcyano screening |
-| GET | `/api/satellite-detection/result/{analysis_id}` | Retrieve screening results |
+| POST | `/api/satellite-detection/analyze/{file_id}` | Run CIcyano screening or create a product preview; reports HAB metric availability |
+| GET | `/api/satellite-detection/result/{analysis_id}` | Retrieve analysis, preview, and HAB metric availability |
 | GET | `/api/satellite-detection/result/{analysis_id}/overlay` | Retrieve the transparent map overlay |
 | GET | `/api/satellite-detection/result/{analysis_id}/indicator` | Retrieve the georeferenced indicator raster |
 | GET | `/api/satellite-detection/result/{analysis_id}/mask` | Retrieve the georeferenced relative-hotspot mask |
 | GET | `/api/satellite-detection/health` | Processing capability and upload limits |
 
-Satellite inputs are limited to Sentinel-3 OLCI CIcyano `v9110V20255_2` GeoTIFFs with the expected product metadata. Uploads and outputs are held outside the repository in a temporary directory with 24-hour expiry. The Tukey upper fence is a scene-relative outlier rule, not a biological HAB threshold. See [docs/satellite_hab_detection.md](../docs/satellite_hab_detection.md) for scientific interpretation and supported product details.
+Satellite inputs are recognized Sentinel-3 OLCI CIcyano, truecolor, landwatercolor, and listed indicator/metadata-preview products. Only verified CIcyano inputs use the CIcyano screening path; other products receive a visual preview. If configured, the ResNet model runs only on CIcyano images with sufficient valid coverage. Its classifier score is experimental and not calibrated for biological HAB probability; the UI presents the probability and risk metrics as unavailable. The API includes unavailable reasons when the selected product is incompatible, coverage is insufficient, or the model is missing. Uploads and outputs are held outside the repository in a temporary directory with 24-hour expiry. The Tukey upper fence is a scene-relative outlier rule, not a biological HAB threshold. See [docs/satellite_hab_detection.md](../docs/satellite_hab_detection.md) for supported products and model limitations.
 
 Events keep the frontend-compatible array shape and `date`, `lat`, `lon` keys. Map coordinates follow GeoJSON order `[longitude, latitude]`. There are no fabricated fallback rows.
 
