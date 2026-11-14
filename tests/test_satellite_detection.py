@@ -136,6 +136,16 @@ async def test_upload_analyze_result_and_georeferenced_outputs(upload_directory)
         assert analyzed.status_code == 200
         result = analyzed.json()
         analysis_id = result["analysis_id"]
+        assert result["hab_detection"]["hab_probability"] is None
+        assert result["hab_detection"]["risk_score"] is None
+        assert result["hab_detection"]["risk_level"] is None
+        assert result["hab_detection"]["model"]["status"] in {
+            "not_run",
+            "experimental",
+        }
+        assert result["hab_detection"]["model"]["inference_ran"] == (
+            result["hab_detection"]["model"]["status"] == "experimental"
+        )
         assert result["analysis"]["possible_hab_indicator"] is None
         assert result["analysis"]["indicator_hotspots_found"] is True
         assert result["analysis"]["threshold_source"].startswith("Scene-specific Tukey upper fence")
@@ -248,7 +258,7 @@ def test_validator_does_not_accept_a_product_version_prefix_lookalike(tmp_path):
     with pytest.raises(SatelliteValidationError) as error:
         inspect_satellite_raster(path, path.name)
 
-    assert error.value.status == "UNSUPPORTED_SENSOR"
+    assert error.value.status == "UNSUPPORTED_PRODUCT_VERSION"
 
 
 def test_processor_uses_quality_codes_and_preserves_georeferencing(tmp_path):
@@ -374,6 +384,89 @@ def test_coverage_categories_and_threshold_behavior(
                 ).convert("RGBA")
             )
             assert np.any(overlay[:, :, 3] > 0)
+
+
+@pytest.mark.parametrize(
+    ("product_name", "band_count"),
+    [
+        ("truecolor", 3),
+        ("landwatercolor", 3),
+        ("CI", 1),
+        ("CInonfluor", 1),
+        ("Kd_Rhos", 1),
+        ("CI-CIcyano", 1),
+        ("rbd_rhos", 1),
+        ("rrs665", 1),
+        ("chloc4_global", 1),
+        ("chl_switch", 1),
+    ],
+)
+@pytest.mark.asyncio
+async def test_supported_preview_products_return_unavailable_hab_metrics(
+    upload_directory, product_name, band_count
+):
+    values = np.arange(
+        1, band_count * 16 + 1, dtype=np.uint8
+    ).reshape((band_count, 4, 4))
+    payload = _raster_bytes(
+        values,
+        description=product_name,
+        count=band_count,
+    )
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        uploaded = await _post_upload(
+            client,
+            f"sentinel-3-test-{product_name}.tif",
+            payload,
+        )
+        assert uploaded.status_code == 200, uploaded.text
+        file_id = uploaded.json()["file_id"]
+
+        analyzed = await client.post(
+            f"/api/satellite-detection/analyze/{file_id}"
+        )
+
+    assert analyzed.status_code == 200, analyzed.text
+    result = analyzed.json()
+    assert result["hab_detection"]["hab_probability"] is None
+    assert result["hab_detection"]["risk_score"] is None
+    assert result["hab_detection"]["risk_level"] is None
+    assert result["outputs"]["preview_url"]
+
+
+@pytest.mark.asyncio
+async def test_insufficient_ci_cyano_coverage_is_reported_in_analysis(
+    upload_directory,
+):
+    values = np.full((10, 10), 255, dtype=np.uint8)
+    values.flat[:9] = np.arange(1, 10, dtype=np.uint8)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        uploaded = await _post_upload(
+            client,
+            "sentinel-3-low-coverage-CIcyano-v9110V20255_2.tif",
+            _raster_bytes(values),
+        )
+        assert uploaded.status_code == 200, uploaded.text
+        file_id = uploaded.json()["file_id"]
+
+        analyzed = await client.post(
+            f"/api/satellite-detection/analyze/{file_id}"
+        )
+
+    assert analyzed.status_code == 200, analyzed.text
+    result = analyzed.json()
+    assert result["quality"]["coverage_category"] == "INSUFFICIENT_COVERAGE"
+    assert result["hab_detection"]["hab_probability"] is None
+    assert result["hab_detection"]["model"]["inference_ran"] is False
+    assert "insufficient" in result["hab_detection"]["reasons"][
+        "hab_probability"
+    ].lower()
 
 
 def test_low_coverage_without_hotspots_still_reports_no_relative_hotspots(tmp_path):
@@ -636,7 +729,11 @@ async def test_health_and_unknown_ids_return_explicit_responses():
             },
         )
     assert health.status_code == 200
-    assert health.json()["supported_product"] == "CIcyano"
+    assert {
+        "CIcyano",
+        "truecolor",
+        "landwatercolor",
+    }.issubset(set(health.json()["supported_products"]))
     assert unknown.status_code == 404
     paths = openapi.json()["paths"]
     assert {

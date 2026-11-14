@@ -64,7 +64,9 @@ async function renderAnalysisResult(result) {
   validateSatelliteImage.mockResolvedValue({
     status: "VALID",
     sensor: "Sentinel-3 OLCI",
+    product_name: "CIcyano",
     product_type: "CIcyano",
+    analysis_capability: "ci_cyano_screening",
     product_version: "v9110V20255_2",
     warnings: [],
   });
@@ -140,7 +142,22 @@ test("uploads, analyzes, and renders screening results and map overlay", async (
       percentiles: { p25: 0.01, p50: 0.02, p75: 0.03, p90: 0.05, p95: 0.07, p99: 0.1 },
     },
     quality: { valid_pixel_percentage: 82.4, cloud_percentage: 4.1, warnings: [] },
-    disclaimer: "Experimental screening, not confirmed HAB diagnosis.",
+    hab_detection: {
+      hab_probability: null,
+      risk_score: null,
+      risk_level: null,
+      model: {
+        name: "XGBoost HAB Future-Risk Prediction",
+        version: "2026-10-08",
+        status: "incompatible",
+        reason: "XGBoost HAB Future-Risk Prediction v2026-10-08 is not configured for CIcyano satellite images.",
+      },
+      reasons: {
+        hab_probability: "A calibrated satellite-compatible HAB probability model is not available.",
+        risk_score: "Risk scoring requires environmental observations not supplied by this image.",
+        risk_level: "A risk level cannot be calculated without a risk score.",
+      },
+    },
   };
   uploadSatelliteImage.mockResolvedValue({
     file_id: "a".repeat(32),
@@ -149,7 +166,9 @@ test("uploads, analyzes, and renders screening results and map overlay", async (
   validateSatelliteImage.mockResolvedValue({
     status: "VALID",
     sensor: "Sentinel-3 OLCI",
+    product_name: "CIcyano",
     product_type: "CIcyano",
+    analysis_capability: "ci_cyano_screening",
     product_version: "v9110V20255_2",
     product_identification_status: "METADATA_CONSISTENT_NOT_AUTHENTICATED",
     provenance_authenticated: false,
@@ -174,7 +193,8 @@ test("uploads, analyzes, and renders screening results and map overlay", async (
 
   await act(async () => root.render(<SatelliteDetection />));
   await dispatchFile(new File(["fake tiff bytes"], "scene.tif", { type: "image/tiff" }));
-  expect(container.textContent).toContain("Sentinel-3 OLCI");
+  expect(container.textContent).not.toContain("Detected product metadata");
+  expect(container.textContent).not.toContain("Sentinel-3 OLCI");
   expect(validateSatelliteImage).toHaveBeenCalledWith("a".repeat(32));
 
   const analyzeButton = Array.from(container.querySelectorAll("button"))
@@ -186,17 +206,20 @@ test("uploads, analyzes, and renders screening results and map overlay", async (
 
   expect(analyzeSatelliteImage).toHaveBeenCalledWith("a".repeat(32));
   expect(getSatelliteAnalysis).toHaveBeenCalledWith("b".repeat(32));
-  expect(container.textContent).toContain("Mean CIcyano index");
-  expect(container.textContent).toContain("Standard deviation");
-  expect(container.textContent).toContain("Invalid / masked pixels");
-  expect(container.textContent).toContain("P99 CIcyano index");
-  expect(container.textContent).toContain("Relative CIcyano hotspots — requires independent verification.");
-  expect(container.textContent).toContain("Metadata-consistent; not independently authenticated");
-  expect(container.textContent).toContain("0.02");
-  expect(container.textContent).toContain("4.50%");
-  expect(container.textContent).toContain("Spatial screening map");
-  expect(container.textContent).toContain("EPSG:3857");
-  expect(container.textContent).toContain("Experimental screening, not confirmed HAB diagnosis.");
+  expect(container.textContent).toContain("HAB detection results");
+  expect(container.textContent).toContain("HAB Probability");
+  expect(container.textContent).toContain("Risk Score");
+  expect(container.textContent).toContain("Risk Level");
+  expect(container.textContent).toContain("Model Version");
+  expect(container.textContent).toContain("XGBoost HAB Future-Risk Prediction v2026-10-08");
+  expect(container.textContent.match(/Not available/g)).toHaveLength(4);
+  expect(container.textContent).not.toContain("Raw-data statistics");
+  expect(container.textContent).not.toContain("Valid-pixel coverage");
+  expect(container.textContent).not.toContain("Band 1");
+  expect(container.querySelector('[role="progressbar"]')).not.toBeNull();
+  expect(container.querySelector('[role="progressbar"]').getAttribute("aria-valuetext"))
+    .toBe("Not available");
+  expect(container.textContent).toContain("Satellite map preview");
   expect(container.querySelector('[data-testid="satellite-overlay"]')).not.toBeNull();
   expect(container.querySelector('[data-testid="satellite-overlay"]').getAttribute("data-bounds"))
     .toBe(JSON.stringify([
@@ -292,20 +315,12 @@ test.each([
     shouldShowNoHotspotsMessage: false,
   },
 ])(
-  "presents $name coverage without overstating the result",
-  async ({
-    status,
-    category,
-    validPercentage,
-    validCount,
-    invalidCount,
-    hotspotCount,
-    hotspotPercentage,
-    warnings,
-    expectedMessage,
-    expectedCoverage,
-    shouldShowNoHotspotsMessage,
-  }) => {
+  "shows unavailable HAB metrics for $name coverage",
+  async (scenario) => {
+    const insufficientCoverage = [
+      "INSUFFICIENT_COVERAGE",
+      "NO_VALID_PIXELS",
+    ].includes(scenario.category);
     const result = {
       analysis_id: "b".repeat(32),
       crs: "EPSG:32617",
@@ -325,51 +340,50 @@ test.each([
         },
       },
       outputs: { overlay_url: "/analysis/overlay" },
-      analysis: {
-        screening_status: status,
-        coverage_category: category,
-        mean_indicator: null,
-        median_indicator: null,
-        standard_deviation_indicator: null,
-        minimum_indicator: null,
-        maximum_indicator: null,
-        valid_pixel_count: validCount,
-        invalid_pixel_count: invalidCount,
-        hotspot_pixel_count: hotspotCount,
-        hotspot_pixel_percentage: hotspotPercentage,
-        threshold: null,
-        threshold_source: "Not calculated.",
-        percentiles: {},
-      },
       quality: {
-        valid_pixel_percentage: validPercentage,
-        coverage_category: category,
-        warnings,
+        valid_pixel_percentage: scenario.validPercentage,
+        coverage_category: scenario.category,
+        warnings: scenario.warnings,
       },
-      disclaimer: "Experimental screening only.",
+      hab_detection: {
+        hab_probability: null,
+        risk_score: null,
+        risk_level: null,
+        model: {
+          name: "XGBoost HAB Future-Risk Prediction",
+          version: "2026-10-08",
+          status: "incompatible",
+          reason: insufficientCoverage
+            ? "Insufficient valid image coverage; model inference was not run."
+            : "XGBoost HAB Future-Risk Prediction v2026-10-08 is not configured for CIcyano satellite images.",
+        },
+        reasons: {
+          hab_probability: insufficientCoverage
+            ? "Insufficient valid image coverage; model inference was not run."
+            : "A calibrated satellite-compatible HAB probability model is not available.",
+          risk_score: "Risk scoring requires environmental observations not supplied by this image.",
+          risk_level: "A risk level cannot be calculated without a risk score.",
+        },
+      },
     };
 
     await renderAnalysisResult(result);
 
-    expect(container.textContent).toContain(expectedMessage);
-    expect(container.textContent).toContain(expectedCoverage);
-    expect(container.textContent).toContain(category);
+    expect(container.textContent).toContain("HAB Probability");
+    expect(container.textContent).toContain("Risk Score");
+    expect(container.textContent).toContain("Risk Level");
+    expect(container.textContent).toContain("Model Version");
+    expect(container.textContent.match(/Not available/g)).toHaveLength(4);
+    expect(container.textContent).not.toContain(scenario.category);
+    expect(container.textContent).not.toContain("Valid-pixel coverage");
+    expect(container.textContent).not.toContain("Raw-data statistics");
+    expect(container.querySelector('[role="progressbar"]').getAttribute("aria-valuetext"))
+      .toBe("Not available");
     expect(container.textContent).toContain(
-      shouldShowNoHotspotsMessage ? "0 (0.00%)" : status === "RELATIVE_HOTSPOTS_DETECTED"
-        ? `${hotspotCount} (${hotspotPercentage.toFixed(2)}%)`
-        : "Not screened"
+      insufficientCoverage
+        ? "Insufficient valid image coverage"
+        : "A calibrated satellite-compatible HAB probability model is not available."
     );
-    if (warnings.length) {
-      expect(container.textContent).toContain(warnings[0]);
-    }
-    if (status === "INSUFFICIENT_COVERAGE") {
-      expect(container.textContent).not.toContain("No high relative-indicator pixels");
-      expect(container.querySelector('[role="alert"][aria-label="Screening warnings"]'))
-        .not.toBeNull();
-    }
-    if (status === "INSUFFICIENT_COVERAGE" || status === "NO_VALID_PIXELS") {
-      expect(container.textContent).toContain("Relative hotspot screening not performed");
-    }
   }
 );
 
@@ -396,7 +410,7 @@ test("shows distinct processing states and prevents duplicate analysis requests"
 
   await act(async () => root.render(<SatelliteDetection />));
   await dispatchFile(new File(["tiff"], "scene.tif", { type: "image/tiff" }));
-  expect(container.textContent).toContain("Uploading and validating…");
+  expect(container.textContent).toContain("Uploading and validating...");
 
   await act(async () => {
     finishUpload({ file_id: "a".repeat(32) });
@@ -410,7 +424,7 @@ test("shows distinct processing states and prevents duplicate analysis requests"
     Simulate.click(analyzeButton);
     await Promise.resolve();
   });
-  expect(container.textContent).toContain("Calculating scaled pixel statistics");
+  expect(container.textContent).toContain("Analyzing the satellite image...");
   expect(analyzeButton.disabled).toBe(true);
 
   await act(async () => {

@@ -10,13 +10,22 @@ from time import perf_counter
 
 # Prefer the PROJ database shipped with Rasterio for GDAL operations. This is
 # process-local and does not change PostgreSQL/PostGIS configuration.
+# Use the GDAL and PROJ data bundled with Rasterio.
+# This avoids conflicts with PostgreSQL/PostGIS PROJ installations.
 _rasterio_spec = importlib.util.find_spec("rasterio")
+
 if _rasterio_spec and _rasterio_spec.origin:
-    _rasterio_proj_data = Path(_rasterio_spec.origin).parent / "proj_data"
+    _rasterio_dir = Path(_rasterio_spec.origin).parent
+
+    _rasterio_proj_data = _rasterio_dir / "proj_data"
+    _rasterio_gdal_data = _rasterio_dir / "gdal_data"
+
     if (_rasterio_proj_data / "proj.db").is_file():
         os.environ["PROJ_DATA"] = str(_rasterio_proj_data)
         os.environ["PROJ_LIB"] = str(_rasterio_proj_data)
 
+    if _rasterio_gdal_data.is_dir():
+        os.environ["GDAL_DATA"] = str(_rasterio_gdal_data)
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse

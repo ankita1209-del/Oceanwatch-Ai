@@ -1,5 +1,11 @@
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
 import {
   ImageOverlay,
   MapContainer,
@@ -21,30 +27,11 @@ import "./SatelliteDetection.css";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
-const DISCLAIMER =
-  "Research prototype only — not an operational HAB warning system. Relative CIcyano hotspots are experimental statistical outliers, not confirmed HAB detections or probabilities; independent field and laboratory verification may be required.";
 
 function isGeoTiff(file) {
   return /\.(tif|tiff)$/i.test(file.name);
 }
 
-function display(value, suffix = "") {
-  if (value === null || value === undefined || value === "") {
-    return "Not available";
-  }
-
-  if (typeof value === "number" && !Number.isFinite(value)) {
-    return "Not available";
-  }
-
-  return `${value}${suffix}`;
-}
-
-function displayNumber(value, digits = 2, suffix = "") {
-  return typeof value === "number" && Number.isFinite(value)
-    ? `${value.toFixed(digits)}${suffix}`
-    : "Not available";
-}
 
 function formatFileSize(bytes) {
   if (!Number.isFinite(bytes) || bytes < 0) {
@@ -58,6 +45,7 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+
 function isValidGeographicBounds(bounds) {
   return Boolean(
     bounds &&
@@ -68,7 +56,8 @@ function isValidGeographicBounds(bounds) {
         bounds.max_longitude,
       ].every(
         (value) =>
-          typeof value === "number" && Number.isFinite(value)
+          typeof value === "number" &&
+          Number.isFinite(value)
       ) &&
       bounds.min_latitude >= -90 &&
       bounds.max_latitude <= 90 &&
@@ -79,84 +68,134 @@ function isValidGeographicBounds(bounds) {
   );
 }
 
-function mapBounds(result) {
-  const displayBounds = result?.display?.bounds;
-  const sourceBounds = result?.bounds;
 
-  const bounds = isValidGeographicBounds(displayBounds)
-    ? displayBounds
-    : sourceBounds;
+function mapBounds(result) {
+  const bounds = isValidGeographicBounds(
+    result?.display?.bounds
+  )
+    ? result.display.bounds
+    : result?.bounds;
 
   if (!isValidGeographicBounds(bounds)) {
     return null;
   }
 
   return [
-    [bounds.min_latitude, bounds.min_longitude],
-    [bounds.max_latitude, bounds.max_longitude],
+    [
+      bounds.min_latitude,
+      bounds.min_longitude,
+    ],
+    [
+      bounds.max_latitude,
+      bounds.max_longitude,
+    ],
   ];
 }
 
-function getScreeningMessage(status, coverageCategory) {
-  if (status === "INSUFFICIENT_COVERAGE") {
-    return "Hotspot screening was not performed because too little of the image contains valid data. This does not mean hotspots are absent or that the water is HAB-free.";
-  }
-
-  if (status === "NO_VALID_PIXELS") {
-    return "No valid pixels were available. Hotspot screening was not performed; check the uploaded product and its quality mask.";
-  }
-
-  const lowCoverageNote =
-    coverageCategory === "LOW_COVERAGE"
-      ? " Low valid-pixel coverage means results may be unstable or unrepresentative."
-      : "";
-
-  switch (status) {
-    case "RELATIVE_HOTSPOTS_DETECTED":
-      return `Relative hotspots were identified under the scene-specific screening rule.${lowCoverageNote}`;
-
-    case "NO_RELATIVE_HOTSPOTS":
-      return `No high relative-indicator pixels were found under the scene-specific screening rule. This does not establish that the waterbody is HAB-free.${lowCoverageNote}`;
-
-    default:
-      return "Screening status is unavailable or unrecognized. Check the backend response.";
-  }
-}
-
-function formatGeographicCoordinates(bounds) {
-  if (!isValidGeographicBounds(bounds)) {
-    return "Source geographic bounds are not available.";
-  }
-
-  return (
-    `Latitude: ${bounds.min_latitude.toFixed(4)}° to ` +
-    `${bounds.max_latitude.toFixed(4)}°; longitude: ` +
-    `${bounds.min_longitude.toFixed(4)}° to ` +
-    `${bounds.max_longitude.toFixed(4)}°.`
-  );
-}
-
-function ResultCard({ label, value, detail }) {
-  return (
-    <article className="satellite-result-card">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      {detail ? <small>{detail}</small> : null}
-    </article>
-  );
-}
 
 function FitMapToBounds({ bounds }) {
   const map = useMap();
 
   useEffect(() => {
     if (bounds) {
-      map.fitBounds(bounds, { padding: [18, 18] });
+      map.fitBounds(
+        bounds,
+        {
+          padding: [18, 18],
+        }
+      );
     }
   }, [bounds, map]);
 
   return null;
 }
+
+
+function getProductName(validation) {
+  return (
+    validation?.product_name ||
+    validation?.product_type ||
+    validation?.product_family ||
+    "Unknown satellite product"
+  );
+}
+
+
+function isCiCyano(validation, result) {
+  return (
+    validation?.product_name === "CIcyano" &&
+    validation?.analysis_capability === "ci_cyano_screening"
+  ) || (
+    result?.product_type === "CIcyano" &&
+    result?.analysis?.analysis_type === "ci_cyano_screening"
+  );
+}
+
+
+function getPreviewUrl(result) {
+  const path =
+    result?.outputs?.preview_url ||
+    result?.outputs?.overlay_url ||
+    result?.preview_url;
+
+  return path
+    ? getSatelliteOutputUrl(path)
+    : null;
+}
+
+
+function HabResultCard({
+  label,
+  value,
+  detail,
+  score,
+  showProgress = false,
+}) {
+  const isAvailable =
+    typeof score === "number" &&
+    Number.isFinite(score) &&
+    score >= 0 &&
+    score <= 100;
+
+  return (
+    <article className="satellite-hab-result-card">
+      <span>{label}</span>
+
+      <strong>{value}</strong>
+
+      {showProgress ? (
+        <div
+          className="satellite-probability-track"
+          role="progressbar"
+          aria-label={label}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          {...(
+            isAvailable
+              ? {
+                  "aria-valuenow": score,
+                }
+              : {
+                  "aria-valuetext": "Not available",
+                }
+          )}
+        >
+          <div
+            className="satellite-probability-fill"
+            style={{
+              width: `${isAvailable ? score : 0}%`,
+            }}
+          />
+        </div>
+      ) : null}
+
+      {detail ? (
+        <small>{detail}</small>
+      ) : null}
+    </article>
+  );
+}
+
 
 export default function SatelliteDetection() {
   const inputRef = useRef(null);
@@ -170,6 +209,7 @@ export default function SatelliteDetection() {
   const [activity, setActivity] = useState("");
   const [dragging, setDragging] = useState(false);
 
+
   async function selectFile(selectedFile) {
     if (busy) return;
 
@@ -182,9 +222,11 @@ export default function SatelliteDetection() {
 
     if (!isGeoTiff(selectedFile)) {
       setFile(null);
+
       setError(
         "Choose a GeoTIFF file with a .tif or .tiff extension."
       );
+
       return;
     }
 
@@ -193,9 +235,11 @@ export default function SatelliteDetection() {
       selectedFile.size > MAX_FILE_SIZE
     ) {
       setFile(null);
+
       setError(
         "Choose a non-empty GeoTIFF no larger than 100 MiB."
       );
+
       return;
     }
 
@@ -204,7 +248,9 @@ export default function SatelliteDetection() {
     setActivity("uploading");
 
     try {
-      const uploaded = await uploadSatelliteImage(selectedFile);
+      const uploaded = await uploadSatelliteImage(
+        selectedFile
+      );
 
       if (!uploaded?.file_id) {
         throw new Error(
@@ -214,9 +260,10 @@ export default function SatelliteDetection() {
 
       setFileId(uploaded.file_id);
 
-      const validationResponse = await validateSatelliteImage(
-        uploaded.file_id
-      );
+      const validationResponse =
+        await validateSatelliteImage(
+          uploaded.file_id
+        );
 
       if (!validationResponse) {
         throw new Error(
@@ -225,6 +272,7 @@ export default function SatelliteDetection() {
       }
 
       setValidation(validationResponse);
+
     } catch (requestError) {
       setFile(null);
       setFileId("");
@@ -236,11 +284,13 @@ export default function SatelliteDetection() {
           : requestError?.message ||
               "Satellite image upload or validation failed."
       );
+
     } finally {
       setBusy(false);
       setActivity("");
     }
   }
+
 
   async function handleAnalyze() {
     if (!fileId || busy) return;
@@ -251,7 +301,9 @@ export default function SatelliteDetection() {
     setResult(null);
 
     try {
-      const analyzed = await analyzeSatelliteImage(fileId);
+      const analyzed = await analyzeSatelliteImage(
+        fileId
+      );
 
       if (!analyzed?.analysis_id) {
         throw new Error(
@@ -259,9 +311,10 @@ export default function SatelliteDetection() {
         );
       }
 
-      const analysisResult = await getSatelliteAnalysis(
-        analyzed.analysis_id
-      );
+      const analysisResult =
+        await getSatelliteAnalysis(
+          analyzed.analysis_id
+        );
 
       if (!analysisResult) {
         throw new Error(
@@ -270,6 +323,7 @@ export default function SatelliteDetection() {
       }
 
       setResult(analysisResult);
+
     } catch (requestError) {
       setError(
         requestError?.response
@@ -277,11 +331,13 @@ export default function SatelliteDetection() {
           : requestError?.message ||
               "Satellite image analysis failed."
       );
+
     } finally {
       setBusy(false);
       setActivity("");
     }
   }
+
 
   function removeFile() {
     if (busy) return;
@@ -297,18 +353,31 @@ export default function SatelliteDetection() {
     }
   }
 
+
   function handleDrop(event) {
     event.preventDefault();
     setDragging(false);
 
     if (busy) return;
 
-    selectFile(event.dataTransfer.files?.[0]);
+    selectFile(
+      event.dataTransfer.files?.[0]
+    );
   }
 
+
+  const ciCyanoProduct = isCiCyano(
+    validation,
+    result
+  );
+
   const bounds = useMemo(
-    () => mapBounds(result),
-    [result]
+    () => (
+      ciCyanoProduct
+        ? mapBounds(result)
+        : null
+    ),
+    [result, ciCyanoProduct]
   );
 
   const center = bounds
@@ -318,30 +387,69 @@ export default function SatelliteDetection() {
       ]
     : [24, -45];
 
-  const analysis = result?.analysis;
-  const quality = result?.quality;
+  const previewUrl = getPreviewUrl(result);
 
-  const sourceBounds = result?.bounds;
-  const screeningPerformed = [
-    "RELATIVE_HOTSPOTS_DETECTED",
-    "NO_RELATIVE_HOTSPOTS",
-  ].includes(analysis?.screening_status);
+  const productName = getProductName(validation);
+
+  const habDetection = result?.hab_detection;
+
+  const probability =
+    habDetection?.model?.probability_calibrated === true &&
+    typeof habDetection.hab_probability === "number" &&
+    Number.isFinite(habDetection.hab_probability) &&
+    habDetection.hab_probability >= 0 &&
+    habDetection.hab_probability <= 1
+      ? habDetection.hab_probability * 100
+      : null;
+
+  const riskScore =
+    typeof habDetection?.risk_score === "number" &&
+    Number.isFinite(habDetection.risk_score) &&
+    habDetection.risk_score >= 0 &&
+    habDetection.risk_score <= 100
+      ? habDetection.risk_score
+      : null;
+
+  const allowedRiskLevels = ["LOW", "MODERATE", "HIGH", "CRITICAL"];
+  const riskLevel = allowedRiskLevels.includes(
+    habDetection?.risk_level
+  )
+    ? habDetection.risk_level
+    : null;
+
+  const model = habDetection?.model;
+  const modelVersion =
+    model?.inference_ran === true &&
+    typeof model.name === "string" &&
+    typeof model.version === "string" &&
+    model.name.trim() &&
+    model.version.trim()
+      ? `${model.name} v${model.version}`
+      : "Not available";
+
 
   return (
     <section className="satellite-detection-page">
+
       <header className="satellite-detection-header">
         <p className="satellite-eyebrow">
-          OCEANWATCH AI / SATELLITE SCREENING
+          OCEANWATCH AI / SATELLITE ANALYSIS
         </p>
 
-        <h1>Satellite CIcyano Screening</h1>
+        <h1>Satellite Product Analysis</h1>
 
+        <p>
+          Upload a supported satellite GeoTIFF to view its
+          preview and analysis.
+        </p>
       </header>
+
 
       <section
         className="satellite-panel"
         aria-labelledby="satellite-upload-title"
       >
+
         <div className="satellite-section-heading">
           <div>
             <h2 id="satellite-upload-title">
@@ -349,44 +457,65 @@ export default function SatelliteDetection() {
             </h2>
 
             <p>
-              GeoTIFF only (.tif, .tiff); maximum upload size
-              100 MiB.
+              GeoTIFF only (.tif, .tiff);
+              maximum upload size 100 MiB.
             </p>
           </div>
         </div>
+
 
         <div
           className={`satellite-dropzone${
             dragging ? " is-dragging" : ""
           }`}
+
           onDragEnter={(event) => {
             event.preventDefault();
             setDragging(true);
           }}
-          onDragOver={(event) => event.preventDefault()}
+
+          onDragOver={(event) => {
+            event.preventDefault();
+          }}
+
           onDragLeave={(event) => {
             if (
-              !event.currentTarget.contains(event.relatedTarget)
+              !event.currentTarget.contains(
+                event.relatedTarget
+              )
             ) {
               setDragging(false);
             }
           }}
+
           onDrop={handleDrop}
         >
+
           <input
             ref={inputRef}
             className="satellite-file-input"
             type="file"
             accept=".tif,.tiff,image/tiff"
             aria-label="Choose a GeoTIFF satellite image"
+
             onChange={(event) =>
-              selectFile(event.target.files?.[0])
+              selectFile(
+                event.target.files?.[0]
+              )
             }
+
             disabled={busy}
           />
 
-          <div className="satellite-drop-icon" aria-hidden="true">
-            <svg viewBox="0 0 48 48" focusable="false">
+
+          <div
+            className="satellite-drop-icon"
+            aria-hidden="true"
+          >
+            <svg
+              viewBox="0 0 48 48"
+              focusable="false"
+            >
               <path d="M24 7v19" />
               <path d="m17 17 7-10 7 10" />
               <path d="M11 27v12h26V27" />
@@ -394,8 +523,13 @@ export default function SatelliteDetection() {
             </svg>
           </div>
 
-          <p>Drag and drop your GeoTIFF here</p>
+
+          <p>
+            Drag and drop your GeoTIFF here
+          </p>
+
           <span>or</span>
+
 
           <button
             className="satellite-secondary-button"
@@ -405,21 +539,27 @@ export default function SatelliteDetection() {
           >
             Browse files
           </button>
+
         </div>
+
 
         {file ? (
           <div className="satellite-file-row">
+
             <div>
               <strong>{file.name}</strong>
-              <span>{formatFileSize(file.size)}</span>
+              <span>
+                {formatFileSize(file.size)}
+              </span>
             </div>
+
 
             <div className="satellite-file-status">
               <span>
                 {busy
                   ? activity === "uploading"
-                    ? "Uploading and validating…"
-                    : "Analyzing…"
+                    ? "Uploading and validating..."
+                    : "Analyzing..."
                   : validation?.status || "Selected"}
               </span>
 
@@ -431,163 +571,57 @@ export default function SatelliteDetection() {
                 Remove
               </button>
             </div>
+
           </div>
         ) : null}
 
+
         {error ? (
-          <div className="satellite-error" role="alert">
+          <div
+            className="satellite-error"
+            role="alert"
+          >
             {error}
           </div>
         ) : null}
+
 
         {validation?.warnings?.length ? (
           <ul
             className="satellite-warning-list"
             aria-label="Validation warnings"
           >
-            {validation.warnings.map((warning, index) => (
-              <li key={`${index}-${warning}`}>{warning}</li>
-            ))}
+            {validation.warnings.map(
+              (warning, index) => (
+                <li key={`${index}-${warning}`}>
+                  {warning}
+                </li>
+              )
+            )}
           </ul>
         ) : null}
+
       </section>
 
-      {validation ? (
-        <section
-          className="satellite-panel"
-          aria-labelledby="satellite-metadata-title"
-        >
-          <div className="satellite-section-heading">
-            <div>
-              <h2 id="satellite-metadata-title">
-                Image metadata
-              </h2>
-
-              <p>
-                Metadata read from the uploaded GeoTIFF;
-                missing values are not inferred.
-              </p>
-            </div>
-          </div>
-
-          <dl className="satellite-metadata-grid">
-            <div>
-              <dt>Sensor</dt>
-              <dd>{display(validation.sensor)}</dd>
-            </div>
-
-            <div>
-              <dt>Product</dt>
-              <dd>{display(validation.product_type)}</dd>
-            </div>
-
-            <div>
-              <dt>Product version</dt>
-              <dd>{display(validation.product_version)}</dd>
-            </div>
-
-            <div>
-              <dt>Product identification</dt>
-              <dd>
-                {validation.provenance_authenticated === false
-                  ? "Metadata-consistent; not independently authenticated"
-                  : display(
-                      validation.product_identification_status
-                    )}
-              </dd>
-            </div>
-
-            <div>
-              <dt>Acquisition date</dt>
-              <dd>{display(validation.acquisition_date)}</dd>
-            </div>
-
-            <div>
-              <dt>CRS</dt>
-              <dd>{display(validation.crs)}</dd>
-            </div>
-
-            <div>
-              <dt>Data type</dt>
-              <dd>{display(validation.data_type)}</dd>
-            </div>
-
-            <div>
-              <dt>Band description</dt>
-              <dd>
-                {display(validation.band_descriptions?.[0])}
-              </dd>
-            </div>
-
-            <div>
-              <dt>Scale formula</dt>
-              <dd>{display(validation.scale_formula)}</dd>
-            </div>
-
-            <div>
-              <dt>Pixel resolution</dt>
-              <dd>
-                {validation.spatial_resolution
-                  ? `${validation.spatial_resolution.join(
-                      " × "
-                    )} source CRS units`
-                  : "Not available"}
-              </dd>
-            </div>
-
-            <div>
-              <dt>Raster dimensions</dt>
-              <dd>
-                {validation.width && validation.height
-                  ? `${validation.width} × ${validation.height}`
-                  : "Not available"}
-              </dd>
-            </div>
-
-            <div>
-              <dt>Band count</dt>
-              <dd>{display(validation.band_count)}</dd>
-            </div>
-
-            <div>
-              <dt>Valid pixels</dt>
-              <dd>
-                {displayNumber(
-                  validation.valid_pixel_percentage,
-                  1,
-                  "%"
-                )}
-              </dd>
-            </div>
-
-            <div>
-              <dt>Geographic coverage</dt>
-              <dd>
-                {isValidGeographicBounds(validation.bounds)
-                  ? formatGeographicCoordinates(validation.bounds)
-                  : "Not available"}
-              </dd>
-            </div>
-          </dl>
-        </section>
-      ) : null}
 
       {validation ? (
         <section
           className="satellite-panel satellite-analysis-panel"
           aria-labelledby="satellite-analysis-title"
         >
+
           <div className="satellite-section-heading">
             <div>
               <h2 id="satellite-analysis-title">
-                Spectral screening
+                Analyze image
               </h2>
 
               <p>
-                Calculates descriptive CIcyano pixel statistics
-                and a scene-relative hotspot mask.
+                View the satellite preview and available
+                analysis results.
               </p>
             </div>
+
 
             <button
               className="satellite-primary-button"
@@ -595,226 +629,122 @@ export default function SatelliteDetection() {
               onClick={handleAnalyze}
               disabled={busy || !fileId}
             >
-              {busy ? "Analyzing…" : "Analyze satellite image"}
+              {busy
+                ? "Processing..."
+                : "Analyze satellite image"}
             </button>
+
           </div>
 
+
           {busy ? (
-            <div className="satellite-progress" role="status">
+            <div
+              className="satellite-progress"
+              role="status"
+            >
               {activity === "uploading"
-                ? "Uploading and validating the product metadata…"
-                : "Calculating scaled pixel statistics and generating the map preview…"}
+                ? "Uploading and validating product metadata..."
+                : "Analyzing the satellite image..."}
             </div>
           ) : null}
+
         </section>
       ) : null}
+
 
       {result ? (
         <>
           <section
             className="satellite-panel"
-            aria-labelledby="satellite-results-title"
+            aria-labelledby="satellite-hab-results-title"
           >
             <div className="satellite-section-heading">
               <div>
-                <h2 id="satellite-results-title">
-                  Screening results
+                <h2 id="satellite-hab-results-title">
+                  HAB detection results
                 </h2>
-
-                <p>
-                  {getScreeningMessage(
-                    analysis?.screening_status,
-                    quality?.coverage_category
-                  )}
-                </p>
+                <p>{productName}</p>
               </div>
-
-              <span className="satellite-experimental-badge">
-                Experimental screening
-              </span>
             </div>
 
-            <div className="satellite-result-grid">
-              <ResultCard
-                label="Mean CIcyano index"
-                value={displayNumber(
-                  analysis?.mean_indicator,
-                  6
-                )}
-              />
-
-              <ResultCard
-                label="Median CIcyano index"
-                value={displayNumber(
-                  analysis?.median_indicator,
-                  6
-                )}
-              />
-
-              <ResultCard
-                label="Standard deviation"
-                value={displayNumber(
-                  analysis?.standard_deviation_indicator,
-                  6
-                )}
-              />
-
-              <ResultCard
-                label="Minimum CIcyano index"
-                value={displayNumber(
-                  analysis?.minimum_indicator,
-                  6
-                )}
-              />
-
-              <ResultCard
-                label="Maximum CIcyano index"
-                value={displayNumber(
-                  analysis?.maximum_indicator,
-                  6
-                )}
-              />
-
-              <ResultCard
-                label="Valid-pixel coverage"
-                value={displayNumber(
-                  quality?.valid_pixel_percentage,
-                  1,
-                  "%"
-                )}
-                detail={display(quality?.coverage_category)}
-              />
-
-              <ResultCard
-                label="Valid pixels"
-                value={display(analysis?.valid_pixel_count)}
-              />
-
-              <ResultCard
-                label="Invalid / masked pixels"
-                value={display(
-                  analysis?.invalid_pixel_count
-                )}
-              />
-
-              <ResultCard
-                label="Relative scene hotspots"
+            <div className="satellite-hab-result-grid">
+              <HabResultCard
+                label="HAB Probability"
                 value={
-                  screeningPerformed
-                    ? `${display(
-                        analysis?.hotspot_pixel_count
-                      )} (${displayNumber(
-                        analysis?.hotspot_pixel_percentage,
-                        2,
-                        "%"
-                      )})`
-                    : "Not screened"
+                  probability === null
+                    ? "Not available"
+                    : `${probability.toFixed(1)}%`
+                }
+                score={probability}
+                showProgress
+                detail={
+                  habDetection?.reasons?.hab_probability ||
+                  "A calibrated satellite HAB probability is not available."
                 }
               />
 
-              <ResultCard
-                label="Cloud quality pixels"
-                value={displayNumber(
-                  quality?.cloud_percentage,
-                  1,
-                  "%"
-                )}
+              <HabResultCard
+                label="Risk Score"
+                value={riskScore === null ? "Not available" : riskScore}
+                detail={
+                  habDetection?.reasons?.risk_score ||
+                  "A validated environmental risk score is not available."
+                }
+              />
+
+              <HabResultCard
+                label="Risk Level"
+                value={riskLevel || "Not available"}
+                detail={
+                  habDetection?.reasons?.risk_level ||
+                  "A risk level cannot be assigned without a risk score."
+                }
+              />
+
+              <HabResultCard
+                label="Model Version"
+                value={modelVersion}
+                detail={
+                  model?.reason ||
+                  "No compatible satellite HAB model is available for this product."
+                }
               />
             </div>
-
-            {quality?.warnings?.length ? (
-              <ul
-                className={`satellite-warning-list satellite-result-warnings${
-                  analysis?.screening_status === "INSUFFICIENT_COVERAGE"
-                    ? " is-insufficient"
-                    : ""
-                }`}
-                aria-label="Screening warnings"
-                role={
-                  analysis?.screening_status === "INSUFFICIENT_COVERAGE"
-                    ? "alert"
-                    : "note"
-                }
-              >
-                {quality.warnings.map((warning, index) => (
-                  <li key={`${index}-${warning}`}>{warning}</li>
-                ))}
-              </ul>
-            ) : null}
-
-            <p className="satellite-threshold-note">
-              {screeningPerformed
-                ? `Relative CIcyano hotspots — requires independent verification. ${display(analysis?.threshold_source)}`
-                : "Hotspot screening was not performed; no hotspot threshold or hotspot absence is reported."}
-            </p>
-
-            <details className="satellite-percentiles">
-              <summary>
-                Percentiles and scene-relative threshold
-              </summary>
-
-              <div className="satellite-result-grid satellite-percentile-grid">
-                {[25, 50, 75, 90, 95, 99].map(
-                  (percentile) => (
-                    <ResultCard
-                      key={percentile}
-                      label={`P${percentile} CIcyano index`}
-                      value={displayNumber(
-                        analysis?.percentiles?.[
-                          `p${percentile}`
-                        ],
-                        6
-                      )}
-                    />
-                  )
-                )}
-
-                <ResultCard
-                  label="Tukey upper fence"
-                  value={displayNumber(
-                    analysis?.threshold,
-                    6
-                  )}
-                  detail="Q3 + 1.5 × IQR; not a validated HAB threshold"
-                />
-              </div>
-            </details>
           </section>
 
-          <section
-            className="satellite-panel"
-            aria-labelledby="satellite-map-title"
-          >
-            <div className="satellite-section-heading">
-              <div>
+
+          {ciCyanoProduct ? (
+            <section
+              className="satellite-panel"
+              aria-labelledby="satellite-map-title"
+            >
+              <div className="satellite-section-heading">
                 <h2 id="satellite-map-title">
-                  Spatial screening map
+                  Satellite map preview
                 </h2>
-
-                <p>
-                  Map preview reprojected to{" "}
-                  {display(result.display?.crs)}. The source
-                  analysis rasters remain in{" "}
-                  {display(result.crs)}.
-                </p>
               </div>
-            </div>
 
-            {bounds ? (
-              <>
+              {bounds ? (
+
                 <div className="satellite-map-frame">
+
                   <MapContainer
                     center={center}
                     zoom={6}
                     scrollWheelZoom
                     className="satellite-map"
                   >
-                    <FitMapToBounds bounds={bounds} />
+
+                    <FitMapToBounds
+                      bounds={bounds}
+                    />
+
 
                     <TileLayer
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
+
 
                     <Rectangle
                       bounds={bounds}
@@ -825,6 +755,7 @@ export default function SatelliteDetection() {
                       }}
                     />
 
+
                     {result.outputs?.overlay_url ? (
                       <ImageOverlay
                         url={getSatelliteOutputUrl(
@@ -834,66 +765,68 @@ export default function SatelliteDetection() {
                         opacity={0.88}
                       />
                     ) : null}
+
                   </MapContainer>
+
                 </div>
 
-                <div className="satellite-map-legend">
-                  <span className="legend-intensity">
-                    <i className="legend-ramp" />
-                    <span>
-                      Continuous CIcyano indicator intensity
-                      <small>
-                        {displayNumber(
-                          analysis?.minimum_indicator,
-                          6
-                        )}{" "}
-                        to{" "}
-                        {displayNumber(
-                          analysis?.maximum_indicator,
-                          6
-                        )}
-                      </small>
-                    </span>
-                  </span>
+              ) : (
 
-                  {screeningPerformed ? (
-                    <span>
-                      <i className="legend-high" />
-                      Relative CIcyano hotspots — requires
-                      independent verification
-                    </span>
-                  ) : (
-                    <span>Relative hotspot screening not performed</span>
-                  )}
-
-                  <span>
-                    <i className="legend-invalid" />
-                    Invalid / masked pixels (transparent)
-                  </span>
-
-                  <span>
-                    <i className="legend-footprint" />
-                    Image footprint
-                  </span>
-                </div>
-
-                <p className="satellite-map-coordinates">
-                  {formatGeographicCoordinates(sourceBounds)}
+                <p className="satellite-map-unavailable">
+                  The map preview is unavailable for this image.
                 </p>
-              </>
-            ) : (
-              <p className="satellite-map-unavailable">
-                Geographic bounds were unavailable, so the map
-                cannot be displayed.
-              </p>
-            )}
-          </section>
 
-          <div className="satellite-disclaimer" role="note">
-            {result.disclaimer || DISCLAIMER}
-          </div>
+              )}
+
+            </section>
+          ) : null}
+
+
+          {!ciCyanoProduct ? (
+            <section
+              className="satellite-panel"
+              aria-labelledby="satellite-preview-title"
+            >
+
+              <div className="satellite-section-heading">
+                <div>
+                  <h2 id="satellite-preview-title">
+                    {productName} preview
+                  </h2>
+                </div>
+              </div>
+
+
+              {previewUrl ? (
+
+                <div className="satellite-generic-preview">
+
+                  <img
+                    src={previewUrl}
+                    alt={`${productName} satellite product preview`}
+                    loading="lazy"
+                  />
+
+                  <p>
+                    Satellite image preview.
+                  </p>
+
+                </div>
+
+              ) : (
+
+                <p className="satellite-map-unavailable">
+                  The image preview is unavailable.
+                </p>
+
+              )}
+
+            </section>
+          ) : null}
+
         </>
       ) : null}
+
     </section>
   );
 }
